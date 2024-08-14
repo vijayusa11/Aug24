@@ -1,0 +1,57 @@
+Here's the complete code for generating an Excel file with column headers and data rows based on your dynamic data. I've modified your provided code for clarity and correctness:
+
+```csharp
+public void ExportToExcel(string employeecode, string employeename, string designation, string department, string email, string username, string employeeGroupName, string Status, string ComplianceStatus, string isdelete, string SelectedEmployeesIds, string orderby, string ordertype, string BankName, string BankAddress, string BankAccountName, string BankAccountNo, string BankAccShortCode, string SelectedFields, string strExportPath)
+{
+    var employeeList = objBL.ExportDynamicReport(employeecode, employeename, designation, department, email, username, employeeGroupName, Status, ComplianceStatus, isdelete, SelectedEmployeesIds, orderby, ordertype, BankName, BankAddress, BankAccountName, BankAccountNo, BankAccShortCode, SelectedFields);
+
+    HSSFWorkbook workbook = new HSSFWorkbook();
+    ISheet sheet = workbook.CreateSheet("Report");
+    IRow headerRow = sheet.CreateRow(0);
+
+    // Define the bold style for headers
+    ICellStyle boldStyle = workbook.CreateCellStyle();
+    IFont boldFont = workbook.CreateFont();
+    boldFont.IsBold = true;
+    boldStyle.SetFont(boldFont);
+
+    // Assuming `SelectedFields` is a comma-separated string of column names
+    string[] columns = SelectedFields.Split(',');
+
+    // Create the header row dynamically based on `SelectedFields`
+    for (int i = 0; i < columns.Length; i++)
+    {
+        ICell cell = headerRow.CreateCell(i);
+        cell.SetCellValue(columns[i]);
+        cell.CellStyle = boldStyle;
+    }
+
+    int rowIndex = 1;
+    foreach (DataRow dataEntity in employeeList.Tables[0].Rows)
+    {
+        IRow currentRow = sheet.CreateRow(rowIndex);
+
+        for (int i = 0; i < columns.Length; i++)
+        {
+            string columnName = columns[i].Trim();
+            string cellValue = dataEntity[columnName] != DBNull.Value ? dataEntity[columnName].ToString() : string.Empty;
+            currentRow.CreateCell(i).SetCellValue(cellValue);
+        }
+
+        rowIndex++;
+    }
+
+    // Write the workbook to a file
+    using (var fileData = new FileStream(strExportPath, FileMode.Create, FileAccess.Write))
+    {
+        workbook.Write(fileData);
+    }
+}
+```
+
+### Key Points:
+1. **Dynamic Header Creation**: The code dynamically generates the Excel headers based on the `SelectedFields` parameter.
+2. **Data Population**: For each row in the dataset, it iterates over the `SelectedFields` to populate the Excel sheet.
+3. **File Export**: Finally, the workbook is written to the specified file path.
+
+This approach should meet your requirement of creating an Excel export with dynamic headers and data rows.
