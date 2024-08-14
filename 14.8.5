@@ -1,0 +1,113 @@
+public DataSet ExportDynamicReport(string EmployeeCode, string EmployeeName, string Designation, string Department, string Email, string Username, string employeeGroupName, string Status, string ComplianceStatus, string isDelete, string SelectedEmployeesIds, string orderby, string ordertype, string BankName, string BankAddress, string BankAccountName, string BankAccountNo, string BankAccShortCode, string SelectedFields)
+{
+    DataSet ds = new DataSet();
+    Employee model = new Employee();
+
+    using (var connection = new SqlConnection(connectionStr))
+    {
+        connection.Open();
+
+        string storedProc = "spGetEmployeeListWithBankExport";
+        using (SqlCommand command = new SqlCommand(storedProc, connection))
+        {
+            command.CommandType = CommandType.StoredProcedure;
+
+            // Add parameters to the command
+            command.Parameters.AddWithValue("@OrderBy", orderby);
+            command.Parameters.AddWithValue("@EmployeeCode", EmployeeCode);
+            command.Parameters.AddWithValue("@EmployeeName", EmployeeName);
+            command.Parameters.AddWithValue("@Designation", Designation);
+            command.Parameters.AddWithValue("@DepartmentName", Department);
+            command.Parameters.AddWithValue("@EmailAddress", Email);
+            command.Parameters.AddWithValue("@Username", Username);
+            command.Parameters.AddWithValue("@EmployeeGroupName", employeeGroupName);
+            command.Parameters.AddWithValue("@Status", Status);
+            command.Parameters.AddWithValue("@ComplianceStatus", ComplianceStatus);
+            command.Parameters.AddWithValue("@IsDelete",  0);
+            command.Parameters.AddWithValue("@employeeIds", SelectedEmployeesIds);
+            command.Parameters.AddWithValue("@ViewerId", Common.Common.GetCurrentUserId());
+            command.Parameters.AddWithValue("@ColumnNames", SelectedFields);
+            command.Parameters.AddWithValue("@TotalCount", ParameterDirection.Output);
+
+            int yourResult = (int)command.Parameters["@TotalCount"].Value;
+           
+            DataTable dt = new DataTable();
+            using (SqlDataReader reader = command.ExecuteReader())
+            {
+               dt.Load(reader);
+            }
+        }
+        connection.Close();
+    
+}
+
+    return ds;
+}
+
+with above method i am getting comma seperated column name and row data in a table format now 
+i want to create a export excel file with that data which sample code written below
+so create me full code for to create excel with column header with data.
+
+
+var employeeList = objBL.ExportDynamicReport(employeecode, employeename, designation, department, email, username, employeeGroupName, Status, ComplianceStatus, isdelete, SelectedEmployeesIds, orderby, ordertype, BankName, BankAddress, BankAccountName, BankAccountNo, BankAccShortCode, SelectedFields);
+
+
+    HSSFWorkbook workbook = new HSSFWorkbook();
+    ISheet sheet = workbook.CreateSheet("Report");
+    IRow HeaderRow = sheet.CreateRow(0);
+
+    // Define the bold style
+    ICellStyle boldStyle = workbook.CreateCellStyle();
+    IFont boldFont = workbook.CreateFont();
+    boldFont.IsBold = true;
+    boldStyle.SetFont(boldFont);
+
+    //for (int i = 0; i <= employeeList.Count() - 1; i++)
+    //{
+    //    CreateCell(HeaderRow, i, employeeList[i].);
+    //}
+
+    CreateCell(HeaderRow, 0, "First Name");
+    CreateCell(HeaderRow, 1, "Middle Name");
+    CreateCell(HeaderRow, 2, "Last Name");
+    CreateCell(HeaderRow, 3, "Birth Date");
+    CreateCell(HeaderRow, 4, "Department");
+    CreateCell(HeaderRow, 5, "Job Title");
+    CreateCell(HeaderRow, 6, "Line Manager Name");
+    CreateCell(HeaderRow, 7, "Joining Date");
+    CreateCell(HeaderRow, 8, "Gphc number");
+    CreateCell(HeaderRow, 9, "Gphc expiry date");
+    CreateCell(HeaderRow, 10, "Office email");
+    CreateCell(HeaderRow, 11, "Staff Xero Code");
+    CreateCell(HeaderRow, 12, "Bank Name");
+    CreateCell(HeaderRow, 13, "Bank Address");
+    CreateCell(HeaderRow, 14, "Bank Account Name");
+    CreateCell(HeaderRow, 15, "Bank Account No");
+    CreateCell(HeaderRow, 16, "Bank Acc Short Code");
+	
+	   int RowIndex = 1;
+                   foreach (var dataEintity in employeeList)
+                    {
+                       //Creating the CurrentDataRow
+                       IRow CurrentRow = sheet.CreateRow(RowIndex); 
+				{
+	            CreateCell(CurrentRow, 17, Convert.ToString(dataEintity.RegionId));
+                CreateCell(CurrentRow, 18, Convert.ToString(dataEintity.CoverApproverGroupIds));
+                CreateCell(CurrentRow, 19, Convert.ToString(dataEintity.Gender));
+                CreateCell(CurrentRow, 20, Convert.ToString(dataEintity.Mobile));
+                CreateCell(CurrentRow, 21, Convert.ToString(dataEintity.Status));
+                CreateCell(CurrentRow, 22, Convert.ToString(dataEintity.ContractorCode));
+                CreateCell(CurrentRow, 23, Convert.ToString(dataEintity.Username1));
+                CreateCell(CurrentRow, 24, Convert.ToString(dataEintity.NINumber));
+                CreateCell(CurrentRow, 25, Convert.ToString(dataEintity.type));
+                CreateCell(CurrentRow, 26, Convert.ToDateTime(dataEintity.ReviewDate).ToString("dd/MM/yyyy"));
+                CreateCell(CurrentRow, 27, Convert.ToDateTime(dataEintity.LeavingDate).ToString("dd/MM/yyyy"));
+                CreateCell(CurrentRow, 28, Convert.ToString(dataEintity.Address));
+                CreateCell(CurrentRow, 29, Convert.ToString(dataEintity.HomeEmail));
+				RowIndex = RowIndex + 1;
+				}
+				
+				using (var fileData = new FileStream(strExportPath, FileMode.Create, FileAccess.Write))
+                    {
+                        workbook.Write(fileData);
+                    }
