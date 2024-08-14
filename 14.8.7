@@ -1,0 +1,89 @@
+The `System.IndexOutOfRangeException` indicates that the `DataSet` returned from `ExportDynamicReport` does not contain any tables. This issue might occur if the stored procedure `spGetEmployeeListWithBankExport` didn't return any results or the `DataSet` wasn't populated correctly.
+
+Here’s a step-by-step approach to troubleshoot and resolve the issue:
+
+### 1. **Check Stored Procedure Execution:**
+   Ensure that `spGetEmployeeListWithBankExport` is correctly returning data. You can test this directly in SQL Server Management Studio (SSMS) to verify that it returns a result set.
+
+### 2. **Verify DataSet Population:**
+   Modify your `ExportDynamicReport` method to ensure that the `DataSet` is correctly populated.
+
+### Updated `ExportDynamicReport` Method:
+```csharp
+public DataSet ExportDynamicReport(string EmployeeCode, string EmployeeName, string Designation, string Department, string Email, string Username, string employeeGroupName, string Status, string ComplianceStatus, string isDelete, string SelectedEmployeesIds, string orderby, string ordertype, string BankName, string BankAddress, string BankAccountName, string BankAccountNo, string BankAccShortCode, string SelectedFields)
+{
+    DataSet ds = new DataSet();
+    
+    using (var connection = new SqlConnection(connectionStr))
+    {
+        connection.Open();
+
+        string storedProc = "spGetEmployeeListWithBankExport";
+        using (SqlCommand command = new SqlCommand(storedProc, connection))
+        {
+            command.CommandType = CommandType.StoredProcedure;
+
+            // Add parameters to the command
+            command.Parameters.AddWithValue("@OrderBy", orderby);
+            command.Parameters.AddWithValue("@EmployeeCode", EmployeeCode);
+            command.Parameters.AddWithValue("@EmployeeName", EmployeeName);
+            command.Parameters.AddWithValue("@Designation", Designation);
+            command.Parameters.AddWithValue("@DepartmentName", Department);
+            command.Parameters.AddWithValue("@EmailAddress", Email);
+            command.Parameters.AddWithValue("@Username", Username);
+            command.Parameters.AddWithValue("@EmployeeGroupName", employeeGroupName);
+            command.Parameters.AddWithValue("@Status", Status);
+            command.Parameters.AddWithValue("@ComplianceStatus", ComplianceStatus);
+            command.Parameters.AddWithValue("@IsDelete",  0);
+            command.Parameters.AddWithValue("@employeeIds", SelectedEmployeesIds);
+            command.Parameters.AddWithValue("@ViewerId", Common.Common.GetCurrentUserId());
+            command.Parameters.AddWithValue("@ColumnNames", SelectedFields);
+            command.Parameters.AddWithValue("@TotalCount", ParameterDirection.Output);
+
+            using (SqlDataAdapter adapter = new SqlDataAdapter(command))
+            {
+                adapter.Fill(ds);
+            }
+
+            // Check the output parameter for row count (optional, for debugging)
+            int rowCount = (int)command.Parameters["@TotalCount"].Value;
+        }
+        connection.Close();
+    }
+
+    return ds;
+}
+```
+
+### 3. **Handle Empty DataSet:**
+   Before attempting to access `Tables[0]`, ensure that the `DataSet` contains at least one table:
+
+```csharp
+if (employeeList != null && employeeList.Tables.Count > 0 && employeeList.Tables[0].Rows.Count > 0)
+{
+    foreach (DataRow dataEntity in employeeList.Tables[0].Rows)
+    {
+        IRow currentRow = sheet.CreateRow(rowIndex);
+
+        for (int i = 0; i < columns.Length; i++)
+        {
+            string columnName = columns[i].Trim();
+            string cellValue = dataEntity[columnName] != DBNull.Value ? dataEntity[columnName].ToString() : string.Empty;
+            currentRow.CreateCell(i).SetCellValue(cellValue);
+        }
+
+        rowIndex++;
+    }
+}
+else
+{
+    // Handle the case where no data is returned
+    Console.WriteLine("No data found.");
+}
+```
+
+### 4. **Test and Debug:**
+   - **Test with valid parameters**: Ensure the stored procedure returns data for the provided inputs.
+   - **Logging**: Add logging to see if the stored procedure is executing correctly and returning data.
+
+These steps should help you identify why the `DataSet` isn't being populated correctly and fix the issue.
