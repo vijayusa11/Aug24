@@ -1,0 +1,45 @@
+public DataSet ExportDynamicReport(string EmployeeCode, string EmployeeName, string Designation, string Department, string Email, string Username, string employeeGroupName, string Status, string ComplianceStatus, string isDelete, string SelectedEmployeesIds, string orderby, string ordertype, string BankName, string BankAddress, string BankAccountName, string BankAccountNo, string BankAccShortCode, string SelectedFields)
+{
+    DataSet ds = new DataSet();
+
+    using (var connection = new SqlConnection("Database=CPSIntranet_Beta;Server=10.10.10.7;user=sa;password=9ijnhy6"))
+    {
+        connection.Open();
+
+        string storedProc = "spGetEmployeeListWithBankExport";
+        SqlCommand command = new SqlCommand(storedProc, connection);
+        command.CommandType = CommandType.StoredProcedure;
+        command.Parameters.Add(new SqlParameter("@OrderBy", orderby));
+        command.Parameters.Add(new SqlParameter("@EmployeeCode", EmployeeCode));
+        command.Parameters.Add(new SqlParameter("@EmployeeName", EmployeeName));
+        command.Parameters.Add(new SqlParameter("@Designation", Designation));
+        command.Parameters.Add(new SqlParameter("@DepartmentName", Department));
+        command.Parameters.Add(new SqlParameter("@EmailAddress", Email));
+        command.Parameters.Add(new SqlParameter("@Username", Username));
+        command.Parameters.Add(new SqlParameter("@EmployeeGroupName", employeeGroupName));
+        command.Parameters.Add(new SqlParameter("@Status", Status));
+        command.Parameters.Add(new SqlParameter("@ComplianceStatus", ComplianceStatus));
+        if (isDelete != null)
+        {
+            command.Parameters.Add(new SqlParameter("@IsDelete", isDelete));
+        }
+        else
+        {
+            command.Parameters.Add(new SqlParameter("@IsDelete", false));
+        }
+        command.Parameters.Add(new SqlParameter("@employeeIds", SelectedEmployeesIds));
+        command.Parameters.Add(new SqlParameter("@ViewerId", Common.Common.GetCurrentUserId()));
+        command.Parameters.Add(new SqlParameter("@ColumnNames", SelectedFields));
+        command.Parameters.Add(new SqlParameter("@TotalCount", false));
+       // string record = command.use ExecuteScalar then getting 
+a single but wanr to get multiple of records with ().ToString();
+        string record = commawhen using ExecuteReader().ToString();
+       
+        connection.Close();
+    }
+}
+
+getting System.Data.SqlClient.SqlDataReader when using ExecuteReader method but not getting values but if use ExecuteScalar then getting 
+a single but wanr to get multiple of records with ExecuteReader so what can i do in .net framework 4.7 with c#
+
+
