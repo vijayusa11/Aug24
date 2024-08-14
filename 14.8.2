@@ -1,0 +1,58 @@
+To retrieve multiple records using the `SqlDataReader` with `ExecuteReader` in .NET Framework 4.7, you need to read the data from the reader and populate the `DataSet` or process the records directly. Below is a modified version of your `ExportDynamicReport` method to achieve this:
+
+```csharp
+public DataSet ExportDynamicReport(string EmployeeCode, string EmployeeName, string Designation, string Department, string Email, string Username, string employeeGroupName, string Status, string ComplianceStatus, string isDelete, string SelectedEmployeesIds, string orderby, string ordertype, string BankName, string BankAddress, string BankAccountName, string BankAccountNo, string BankAccShortCode, string SelectedFields)
+{
+    DataSet ds = new DataSet();
+
+    using (var connection = new SqlConnection("Database=CPSIntranet_Beta;Server=10.10.10.7;user=sa;password=9ijnhy6"))
+    {
+        connection.Open();
+
+        string storedProc = "spGetEmployeeListWithBankExport";
+        using (SqlCommand command = new SqlCommand(storedProc, connection))
+        {
+            command.CommandType = CommandType.StoredProcedure;
+
+            // Add parameters to the command
+            command.Parameters.Add(new SqlParameter("@OrderBy", orderby));
+            command.Parameters.Add(new SqlParameter("@EmployeeCode", EmployeeCode));
+            command.Parameters.Add(new SqlParameter("@EmployeeName", EmployeeName));
+            command.Parameters.Add(new SqlParameter("@Designation", Designation));
+            command.Parameters.Add(new SqlParameter("@DepartmentName", Department));
+            command.Parameters.Add(new SqlParameter("@EmailAddress", Email));
+            command.Parameters.Add(new SqlParameter("@Username", Username));
+            command.Parameters.Add(new SqlParameter("@EmployeeGroupName", employeeGroupName));
+            command.Parameters.Add(new SqlParameter("@Status", Status));
+            command.Parameters.Add(new SqlParameter("@ComplianceStatus", ComplianceStatus));
+            command.Parameters.Add(new SqlParameter("@IsDelete", isDelete ?? "false"));
+            command.Parameters.Add(new SqlParameter("@employeeIds", SelectedEmployeesIds));
+            command.Parameters.Add(new SqlParameter("@ViewerId", Common.Common.GetCurrentUserId()));
+            command.Parameters.Add(new SqlParameter("@ColumnNames", SelectedFields));
+            command.Parameters.Add(new SqlParameter("@TotalCount", false));
+
+            // Use ExecuteReader to get multiple records
+            using (SqlDataReader reader = command.ExecuteReader())
+            {
+                DataTable dt = new DataTable();
+                dt.Load(reader);  // Load the data from the reader into the DataTable
+                ds.Tables.Add(dt);  // Add the DataTable to the DataSet
+            }
+        }
+        connection.Close();
+    }
+
+    return ds;
+}
+```
+
+### Key Points:
+- **ExecuteReader**: This method is used to retrieve multiple rows from the database. The data is read using a `SqlDataReader`.
+- **DataTable.Load()**: This method loads the data from the `SqlDataReader` into a `DataTable`.
+- **DataSet**: If you want to return multiple tables, you can add more `DataTable` objects to the `DataSet`.
+
+### Additional Notes:
+- If your stored procedure returns multiple result sets, you can call `DataTable.Load(reader)` for each result set and add them to the `DataSet`.
+- The `DataSet` is ideal for working with multiple tables of data, while `ExecuteReader` is optimal for reading through rows quickly and efficiently.
+
+This method should now retrieve multiple records as expected.
