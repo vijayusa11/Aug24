@@ -1,0 +1,56 @@
+as i am woring with below method whenever i am click on checkbox its going to run below mehod -
+
+ var empIds = [];
+
+ // Vijay 13 Bug
+ function OnSelectEmployee(selectedEmployeeId, isChecked) {
+     debugger
+
+     if (isChecked) {
+         // Add the selected employee ID to the array
+         empIds.push(selectedEmployeeId);
+     } else {
+         // Remove the unselected employee ID from the array
+         empIds = empIds.filter(id => id !== selectedEmployeeId);
+     }
+
+     // Update the hidden input field with the joined IDs
+     $("#hdn_selectedEmployees").val(empIds.join(","));
+    // $("#hdn_selectedColumns").val(selectedColumns.join(","));
+ }
+ 
+ backend code -
+ strreturn = strreturn + " <td><input type=\"checkbox\" onchange=\"OnSelectEmployee(" + b.EmployeeId + ", this.checked)\" class=\"chkdownloaddoc\" id=\"" + b.EmployeeId + "\" /></td>" + Environment.NewLine;
+                            
+							
+but whenever i am click on below method its not going to take id value at onchange method call
+
+var selectedColumns = [];
+
+function OnSelectColumns(conceptName, isChecked) {
+    debugger
+    
+    var conceptName = $('#hdn_selectedColumns').find(":selected").text();
+    selectedColumns.push(conceptName);
+
+    //if (isChecked) {
+    //    // Add the selected column name to the array
+    //    selectedColumns.push(conceptName);
+    //} else {
+    //    // Remove the unselected column name from the array
+    //    selectedColumns = selectedColumns.filter(name => name !== conceptName);
+    //}
+    //selectedColumns = selectedColumns.filter(name => name !== conceptName);
+    // Update the hidden input field with the joined column names (if needed)
+    $("#hdn_selectedColumns").val(selectedColumns.join(","));
+}
+
+cshtml page code -
+        <div class="col-lg-8">
+            @if (ViewBag.EmpCodeList != null)
+            {
+               @Html.ListBox("EmpCodeGroups", ViewBag.EmpCodeList as MultiSelectList, new { @class = "chzn-select", data_placeholder = "Select Custom Fields", @tabindex = "10", @onchange = "OnSelectColumns()", @id = "hdn_selectedColumns" })
+            }
+        </div>							
+		
+what's update i can do in OnSelectColumns implementation or call.	
