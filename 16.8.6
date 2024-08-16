@@ -1,0 +1,48 @@
+To pass comma-separated values of selected columns to the function that generates your Excel report, you can modify the `OnSelectColumns` JavaScript function. It seems that your current approach is close but needs some refinement to handle the selection correctly. Below is a modified version of your function that should work as expected:
+
+### Updated JavaScript Function:
+```javascript
+var selectedColumns = [];
+
+function OnSelectColumns() {
+    debugger;
+    // Clear the selectedColumns array to reset the selections
+    selectedColumns = [];
+
+    // Get all selected options in the ListBox
+    $('#hdn_selectedColumns option:selected').each(function() {
+        selectedColumns.push($(this).text());
+    });
+
+    // Join the selected column names into a comma-separated string
+    var selectedColumnsString = selectedColumns.join(",");
+
+    // Update the hidden input field with the comma-separated values
+    $("#hdnCustomFields").val(selectedColumnsString);
+}
+```
+
+### Key Changes:
+1. **Handling Multiple Selections:**
+   - The `.each()` method is used to iterate over all selected options in the ListBox. This way, all selected column names are added to the `selectedColumns` array.
+
+2. **Joining Values:**
+   - The `selectedColumns.join(",")` method is used to create a comma-separated string from the array of selected column names.
+
+3. **Clearing Previous Selections:**
+   - Before each execution, `selectedColumns = [];` resets the array to ensure it only contains the currently selected values.
+
+### HTML Code:
+Ensure your `ListBox` HTML element is correctly set up to trigger the `OnSelectColumns` function when the selection changes:
+```html
+@Html.ListBox("EmpCodeGroups", ViewBag.EmpCodeList as MultiSelectList, new { @class = "chzn-select", data_placeholder = "Select Custom Fields", @tabindex = "10", @onchange = "OnSelectColumns()", @id = "hdn_selectedColumns" })
+
+<!-- Hidden input field to store the comma-separated column names -->
+<input type="hidden" id="hdnCustomFields" name="hdnCustomFields" />
+```
+
+### Explanation:
+- **`#hdn_selectedColumns`:** The ListBox where users select columns.
+- **`#hdnCustomFields`:** A hidden input field where the comma-separated column names are stored, which can then be passed to the server-side function to generate the Excel report.
+
+This approach should ensure that you get the correct comma-separated list of selected column names every time a selection is made or changed in the ListBox.
