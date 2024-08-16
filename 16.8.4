@@ -1,0 +1,48 @@
+If you're using a multi-select dropdown (`ListBox`) rather than individual checkboxes, you need to handle the selection and deselection logic differently. Here’s how to adjust the `OnSelectColumns` function to work with a multi-select dropdown:
+
+### JavaScript:
+
+```javascript
+var selectedColumns = [];
+
+function OnSelectColumns() {
+    debugger;
+
+    // Get the selected options
+    var selectedOptions = $("#hdn_selectedColumns option:selected");
+
+    // Clear the selectedColumns array
+    selectedColumns = [];
+
+    // Loop through the selected options and add them to the array
+    selectedOptions.each(function() {
+        selectedColumns.push($(this).text());
+    });
+
+    // Update the hidden input field with the joined column names (if needed)
+    $("#hdn_selectedColumns").val(selectedColumns.join(","));
+}
+```
+
+### CSHTML:
+
+```csharp
+<div class="col-lg-8">
+    @if (ViewBag.EmpCodeList != null)
+    {
+        @Html.ListBox("EmpCodeGroups", ViewBag.EmpCodeList as MultiSelectList, new {
+            @class = "chzn-select",
+            data_placeholder = "Select Custom Fields",
+            @tabindex = "10",
+            @onchange = "OnSelectColumns()", // Call the function on change
+            @id = "hdn_selectedColumns"
+        })
+    }
+</div>
+```
+
+### Explanation:
+- **OnSelectColumns:** The function now loops through all selected options in the dropdown and adds their text values to the `selectedColumns` array. The `option:selected` selector ensures that only the selected items are included.
+- **CSHTML:** The `onchange` event is still attached to the `ListBox` element, ensuring that the `OnSelectColumns` function is called whenever the selection changes.
+
+This approach should handle the selection and deselection logic properly when using a multi-select dropdown.
