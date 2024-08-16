@@ -1,0 +1,57 @@
+To fix the issue with the `OnSelectColumns` method, you need to ensure the `conceptName` is passed correctly and the `onchange` event handler is properly configured. Here’s how you can update the code:
+
+1. **Pass the Concept Name and IsChecked Value:**
+   Update the `OnSelectColumns` function to accept `conceptName` and `isChecked` as parameters. You'll need to correctly pass the `conceptName` value when the function is called from the `onchange` event.
+
+2. **Update the `OnSelectColumns` Function:**
+   Remove the `var conceptName = $('#hdn_selectedColumns').find(":selected").text();` line, as this isn't necessary since you're already passing the `conceptName` as a parameter.
+
+3. **Correct the `cshtml` Code:**
+   Update the `onchange` attribute to pass the correct `conceptName` and `isChecked` values to the `OnSelectColumns` function.
+
+Here is the updated implementation:
+
+### JavaScript:
+
+```javascript
+var selectedColumns = [];
+
+function OnSelectColumns(conceptName, isChecked) {
+    debugger;
+
+    if (isChecked) {
+        // Add the selected column name to the array
+        selectedColumns.push(conceptName);
+    } else {
+        // Remove the unselected column name from the array
+        selectedColumns = selectedColumns.filter(name => name !== conceptName);
+    }
+
+    // Update the hidden input field with the joined column names (if needed)
+    $("#hdn_selectedColumns").val(selectedColumns.join(","));
+}
+```
+
+### CSHTML:
+
+```csharp
+<div class="col-lg-8">
+    @if (ViewBag.EmpCodeList != null)
+    {
+        foreach (var item in ViewBag.EmpCodeList)
+        {
+            <input type="checkbox" 
+                   onchange="OnSelectColumns('@item.Text', this.checked)" 
+                   class="chkdownloaddoc" 
+                   id="@item.Value" />
+            @item.Text
+        }
+    }
+</div>
+```
+
+### Explanation:
+- **OnSelectColumns** now takes `conceptName` and `isChecked` directly from the checkbox change event.
+- In the CSHTML code, the `onchange` event handler correctly passes the `@item.Text` (which represents the column name) and the `this.checked` state to the JavaScript function.
+
+This should resolve the issue and ensure that `OnSelectColumns` handles the column selection correctly.
