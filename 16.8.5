@@ -1,0 +1,45 @@
+getting values like this at the time of dubug of function and i want comma seperated values so can pass to function 
+to print column data in excel report.
+asp.net framework 4.7 with C#
+
+Debug values sample -
+0
+: 
+"Employee Code"
+1
+: 
+"Employee CodeContractor Code"
+2
+: 
+"Employee CodeContractor CodeLast Name"
+3
+: 
+"Employee CodeContractor CodeEmail AddressLast Name"
+length
+: 
+4
+
+function -
+    var selectedColumns = [];
+
+    function OnSelectColumns() {
+        debugger
+
+        var conceptName = $('#hdn_selectedColumns').find(":selected").text();
+        selectedColumns.push(conceptName);
+
+        //if (isChecked) {
+        //    // Add the selected column name to the array
+        //    selectedColumns.push(conceptName);
+        //} else {
+        //    // Remove the unselected column name from the array
+        //    selectedColumns = selectedColumns.filter(name => name !== conceptName);
+        //}
+        //selectedColumns = selectedColumns.filter(name => name !== conceptName);
+        // Update the hidden input field with the joined column names (if needed)
+        $("#hdnCustomFields").val(selectedColumns.join(","));
+    }
+	
+HTML Code -
+ @Html.ListBox("EmpCodeGroups", ViewBag.EmpCodeList as MultiSelectList, new { @class = "chzn-select", data_placeholder = "Select Custom Fields", @tabindex = "10", @onchange = "OnSelectColumns()", @id = "hdn_selectedColumns" })
+         	
