@@ -1,0 +1,91 @@
+To create an Excel file where the header row corresponds to `CustomFieldValue` and the columns' data corresponds to `CustomFieldName` from the `CustomFieldMaster` table, you need to modify your existing code slightly. Here's how you can achieve that:
+
+1. **Modify the SQL Query**: First, you need to retrieve `CustomFieldValue` as headers and `CustomFieldName` as the data for each row. 
+
+2. **Update the Excel Export Logic**: Use the retrieved data to dynamically generate the headers and fill the rows accordingly.
+
+Here's an updated approach based on your current method:
+
+### Step 1: Modify Stored Procedure or Query
+Ensure that your stored procedure or SQL query retrieves `CustomFieldValue` as headers and `CustomFieldName` as the corresponding data.
+
+### Step 2: Update the Export Logic
+Modify the Excel export logic to use the `CustomFieldValue` as the headers and the corresponding `CustomFieldName` as the data.
+
+### Updated Code Example
+```csharp
+var customFields = new List<KeyValuePair<string, string>>();
+
+using (SqlConnection connection = new SqlConnection(connectionStr))
+{
+    string query = "SELECT CustomFieldName, CustomFieldValue FROM CustomFieldMaster WHERE IsActive = 1"; // Adjust your query as needed
+
+    using (SqlCommand command = new SqlCommand(query, connection))
+    {
+        connection.Open();
+        using (SqlDataReader reader = command.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                customFields.Add(new KeyValuePair<string, string>(
+                    reader["CustomFieldName"].ToString(),
+                    reader["CustomFieldValue"].ToString()));
+            }
+        }
+    }
+}
+
+HSSFWorkbook workbook = new HSSFWorkbook();
+ISheet sheet = workbook.CreateSheet("Report");
+IRow headerRow = sheet.CreateRow(0);
+
+// Define the bold style for headers
+ICellStyle boldStyle = workbook.CreateCellStyle();
+IFont boldFont = workbook.CreateFont();
+boldFont.IsBold = true;
+boldStyle.SetFont(boldFont);
+
+// Create the header row dynamically based on `CustomFieldValue`
+for (int i = 0; i < customFields.Count; i++)
+{
+    ICell cell = headerRow.CreateCell(i);
+    cell.SetCellValue(customFields[i].Value);  // Use CustomFieldValue as header
+    cell.CellStyle = boldStyle;
+}
+
+int rowIndex = 1;
+if (employeeList != null && employeeList.Tables.Count > 0 && employeeList.Tables[0].Rows.Count > 0)
+{
+    foreach (DataRow dataEntity in employeeList.Tables[0].Rows)
+    {
+        IRow currentRow = sheet.CreateRow(rowIndex);
+
+        for (int i = 0; i < customFields.Count; i++)
+        {
+            string fieldName = customFields[i].Key; // Use CustomFieldName as the column data
+            string cellValue = dataEntity[fieldName] != DBNull.Value ? dataEntity[fieldName].ToString() : string.Empty;
+            currentRow.CreateCell(i).SetCellValue(cellValue);
+        }
+
+        rowIndex++;
+    }
+}
+else
+{
+    // Handle the case where no data is returned
+    Console.WriteLine("No data found.");
+}
+
+// Write the workbook to a file
+using (var fileData = new FileStream(strExportPath, FileMode.Create, FileAccess.Write))
+{
+    workbook.Write(fileData);
+}
+```
+
+### Explanation:
+- **CustomFieldValue as Header**: The code now sets `CustomFieldValue` as the header in the Excel file.
+- **CustomFieldName as Data**: The data for each row is populated using the corresponding `CustomFieldName`.
+- **Dynamic Creation**: Both headers and rows are generated dynamically based on the data retrieved from the `CustomFieldMaster` table.
+
+This setup ensures that your Excel export will have `CustomFieldValue` as column headers and the corresponding data under those headers will be based on `CustomFieldName`.
