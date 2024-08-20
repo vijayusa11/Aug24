@@ -1,0 +1,8 @@
+want to check if t1.TimeSheetDate is null then check condition with r.RotaDate
+
+
+ if @FromDate<>''      
+  begin      
+   set @SELECT = @SELECT + ' and CONVERT(VARCHAR,t1.TimeSheetDate,103) >=  CONVERT(VARCHAR,'''+ @FromDate  + ''') '      
+  end       
+  
