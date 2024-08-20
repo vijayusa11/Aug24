@@ -1,0 +1,16 @@
+I have this button so whenever i click on Cancel button values filled below written listbox should be remove or reset or delete.
+asp.net framework 4.7
+
+<button type="button" class="btn btn-default" id="closeconfirmmodel" data-dismiss="modal"
+        name="closeconfirmmodel">
+    Cancel
+</button>
+
+   <div class="col-lg-8">
+       @if (ViewBag.EmpCodeList != null)
+       {
+           @Html.ListBox("EmpCodeGroups", ViewBag.EmpCodeList as MultiSelectList, new { @class = "chzn-select", data_placeholder = "Select Custom Fields", @tabindex = "10", @onchange = "OnSelectColumns()", @id = "hdn_selectedColumns" })
+       }
+   </div>
+   
+   
