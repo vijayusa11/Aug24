@@ -1,0 +1,8 @@
+IF @FromDate <> ''
+BEGIN
+    SET @SELECT = @SELECT + ' AND (
+        (t1.TimeSheetDate IS NOT NULL AND CONVERT(VARCHAR, t1.TimeSheetDate, 103) >= CONVERT(VARCHAR, ''' + @FromDate + ''', 103)) 
+        OR 
+        (t1.TimeSheetDate IS NULL AND CONVERT(VARCHAR, r.RotaDate, 103) >= CONVERT(VARCHAR, ''' + @FromDate + ''', 103))
+    )'
+END
