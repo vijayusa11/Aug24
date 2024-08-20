@@ -1,0 +1,35 @@
+To clear the selected values in the ListBox when the "Cancel" button is clicked, you can add a JavaScript function to handle this. You can use jQuery to reset the ListBox when the button is clicked.
+
+Here's how you can do it:
+
+1. **Add a JavaScript function** that will be triggered when the "Cancel" button is clicked.
+2. **Clear the ListBox values** in the JavaScript function.
+
+Here’s an example of how you can implement this:
+
+```html
+<button type="button" class="btn btn-default" id="closeconfirmmodel" data-dismiss="modal"
+        name="closeconfirmmodel" onclick="clearListBox()">
+    Cancel
+</button>
+
+<div class="col-lg-8">
+    @if (ViewBag.EmpCodeList != null)
+    {
+        @Html.ListBox("EmpCodeGroups", ViewBag.EmpCodeList as MultiSelectList, new { @class = "chzn-select", data_placeholder = "Select Custom Fields", @tabindex = "10", @onchange = "OnSelectColumns()", @id = "hdn_selectedColumns" })
+    }
+</div>
+
+<script type="text/javascript">
+    function clearListBox() {
+        // Clear the ListBox selections
+        $('#hdn_selectedColumns').val([]);
+    }
+</script>
+```
+
+### Explanation:
+- **clearListBox() function**: This function is executed when the "Cancel" button is clicked. It selects the ListBox by its ID (`hdn_selectedColumns`) and clears the selected values by setting it to an empty array `[]`.
+- **onclick="clearListBox()"**: This attribute is added to the "Cancel" button to trigger the `clearListBox` function when the button is clicked.
+
+This setup should clear the selected items in the ListBox whenever the "Cancel" button is clicked.
