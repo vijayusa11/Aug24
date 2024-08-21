@@ -1,0 +1,21 @@
+To perform the update operation you described in SQL Server, you can use the following query. The goal is to subtract the `NoOfDays` from the `TotalHours` in the `RotaDetails` table, based on the matching `PracticeId` and `EmployeeId` from the `LeaveDetails` table:
+
+```sql
+UPDATE RD
+SET RD.TotalHours = RD.TotalHours - LD.NoOfDays
+FROM RotaDetails RD
+JOIN LeaveDetails LD ON RD.PracticeId = LD.PracticeId AND RD.EmployeeId = LD.EmployeeId
+WHERE RD.PracticeId = 1015 AND RD.EmployeeId = 1012;
+```
+
+### Explanation:
+- **`UPDATE RD`**: This specifies the alias for the `RotaDetails` table to be updated.
+- **`SET RD.TotalHours = RD.TotalHours - LD.NoOfDays`**: This subtracts the `NoOfDays` from the `LeaveDetails` table from the `TotalHours` column in the `RotaDetails` table.
+- **`FROM RotaDetails RD JOIN LeaveDetails LD`**: This joins the `RotaDetails` table with the `LeaveDetails` table based on `PracticeId` and `EmployeeId`.
+- **`WHERE RD.PracticeId = 1015 AND RD.EmployeeId = 1012`**: This ensures the update is applied only to the specific `PracticeId` and `EmployeeId`.
+
+### Common Issues:
+- If you’re getting the wrong results, double-check the `NoOfDays` values in `LeaveDetails` and the initial `TotalHours` in `RotaDetails` to ensure they are correct.
+- Make sure the data types of `TotalHours` and `NoOfDays` are compatible for subtraction.
+  
+This query should update the `TotalHours` in the `RotaDetails` table as expected. If you're still encountering issues, please share the specific incorrect result you're getting, and we can further troubleshoot.
