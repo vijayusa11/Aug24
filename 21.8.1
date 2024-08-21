@@ -1,0 +1,13 @@
+UPDATE table11  AS w
+  JOIN auxtable AS z ON z.id = w.id
+   SET w.col2 = z.value
+
+want to update below query as per above query 
+update RotaDetails table calculation with set TotalHours=(TotalHours-noofdays) as re from LeaveDetails  
+where PracticeId=1015 and EmployeeId=1012
+
+here i want to update TotalHours of RotaDetails
+but as i calculated getting wrong result.
+ table minus with noofdays of LeaveDetails table and want to insert that data into
+same column TotalHours of RotaDetails
+but as i calculated getting wrong result.
