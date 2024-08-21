@@ -1,0 +1,59 @@
+To update the `TotalHours` column in the `RotaDetails` table based on the subtraction of the `NoOfDays` from the `LeaveDetails` table, you can use an `UPDATE` query that calculates and sets the `TotalHours` directly. Here's how you can do it:
+
+### Update Query:
+
+```sql
+UPDATE RD
+SET RD.TotalHours = RD.TotalHours - LD.NoOfDays
+FROM RotaDetails RD
+JOIN LeaveDetails LD ON RD.PracticeId = LD.PracticeId AND RD.EmployeeId = LD.EmployeeId
+WHERE RD.PracticeId = 1015 AND RD.EmployeeId = 1012;
+```
+
+### Explanation:
+- **`RD.TotalHours = RD.TotalHours - LD.NoOfDays`**: This updates the `TotalHours` column in the `RotaDetails` table by subtracting the corresponding `NoOfDays` from the `LeaveDetails` table.
+- **`JOIN LeaveDetails LD ON ...`**: The `JOIN` ensures that the update only applies to the rows in `RotaDetails` that match the `PracticeId` and `EmployeeId` in `LeaveDetails`.
+- **`WHERE RD.PracticeId = 1015 AND RD.EmployeeId = 1012`**: This clause restricts the update to the specific `PracticeId` and `EmployeeId` you're targeting.
+
+### Step-by-Step Update:
+1. **Check Initial Data**: Ensure that the `TotalHours` in `RotaDetails` is correctly initialized before performing the update.
+2. **Run the Update Query**: Execute the query to update `TotalHours` based on the corresponding `NoOfDays`.
+3. **Verify the Results**: After running the update, check the `RotaDetails` table to ensure that the `TotalHours` have been updated correctly.
+
+### Example:
+
+Before the update:
+
+| EmployeeId | rotadate   | TotalHours | NoOfDays |
+|------------|------------|------------|----------|
+| 1012       | 2024-08-05 | 10         | 2        |
+| 1012       | 2024-08-06 | 10         | 2.5      |
+| 1012       | 2024-08-07 | 10         | 7.5      |
+
+After running the update query:
+
+| EmployeeId | rotadate   | TotalHours | NoOfDays |
+|------------|------------|------------|----------|
+| 1012       | 2024-08-05 | 8          | 2        |
+| 1012       | 2024-08-06 | 7.5        | 2.5      |
+| 1012       | 2024-08-07 | 2.5        | 7.5      |
+
+In this example, `TotalHours` is updated by subtracting `NoOfDays`.
+
+### Additional Considerations:
+- **Preventing Negative Values**: If you want to avoid having negative `TotalHours`, you can use a `CASE` statement to set `TotalHours` to 0 if the result is negative:
+  
+  ```sql
+  UPDATE RD
+  SET RD.TotalHours = CASE 
+                        WHEN RD.TotalHours - LD.NoOfDays < 0 THEN 0 
+                        ELSE RD.TotalHours - LD.NoOfDays 
+                      END
+  FROM RotaDetails RD
+  JOIN LeaveDetails LD ON RD.PracticeId = LD.PracticeId AND RD.EmployeeId = LD.EmployeeId
+  WHERE RD.PracticeId = 1015 AND RD.EmployeeId = 1012;
+  ```
+
+This query will update the `TotalHours` while ensuring it doesn't go below zero.
+
+After running the appropriate query, verify the `RotaDetails` table to confirm that the updates are as expected.
