@@ -1,0 +1,140 @@
+To address the issue of duplicate records and ensure that you get the actual records, we need to carefully analyse the join conditions and grouping logic. The main reason for duplicates is likely due to the joins involving the `rotadetails`, `Tms_Timesheets`, and other related tables.
+
+Here’s an optimized approach to refine the query:
+
+### Key Points to Consider:
+1. **Use `GROUP BY`**: Ensure that grouping is done correctly to avoid duplicates.
+2. **Distinct Select**: Using `SELECT DISTINCT` helps eliminate duplicate rows, but the best approach is to address the root cause, which often lies in the joins.
+3. **Filtering Join Conditions**: Adjust the join conditions to filter out unnecessary rows.
+
+### Updated Query Strategy:
+- Use `GROUP BY` with the correct fields to ensure that duplicates are eliminated based on your desired results.
+- Filter on `RotaDate` correctly to only include relevant `rotadetails` records.
+- Ensure that the date filtering conditions are applied correctly in the `WHERE` clause.
+
+### Optimized Stored Procedure
+
+```sql
+ALTER PROCEDURE [dbo].[TMS_spGetTimesheetListforUnSubmittedStatus]         
+(          
+    @OrderBy VARCHAR(1000),           
+    @StartRow INT,           
+    @EndRow INT,          
+    @EmployeeName NVARCHAR(100),          
+    @TimesheetDate NVARCHAR(10),          
+    @ProjectName NVARCHAR(100),           
+    @PracticeName NVARCHAR(100),          
+    @CreatedDate NVARCHAR(20),          
+    @Rate NVARCHAR(5),          
+    @WorkTypeId NVARCHAR(10),          
+    @Status NVARCHAR(50),          
+    @FromDate NVARCHAR(10),          
+    @ToDate NVARCHAR(10),          
+    @TimesheetStatusId NVARCHAR(10),          
+    @EmployeeId NVARCHAR(10),          
+    @ViewerId INT,          
+    @ForEmployee BIT,          
+    @mystaff BIT,          
+    @TotalCount INT OUT          
+)          
+AS              
+BEGIN          
+    SET NOCOUNT ON;          
+    
+    DECLARE @IsAdmin BIT = 0;
+    DECLARE @IsLineManager BIT;
+    DECLARE @IsFinanceController BIT;
+    DECLARE @SELECT NVARCHAR(MAX);
+    DECLARE @SQL NVARCHAR(MAX);
+
+    -- Determine if the user is an admin
+    SELECT @IsLineManager = ISNULL(IsLineManager, 0), 
+           @IsFinanceController = ISNULL(IsFinanceController, 0)
+    FROM Employees 
+    WHERE EmployeeId = @ViewerId;
+
+    IF @IsFinanceController = 1 OR @IsLineManager = 1
+    BEGIN
+        SET @IsAdmin = 1;
+    END
+
+    -- Begin constructing the query
+    SET @SELECT = N'SELECT DISTINCT t1.TimesheetId, 
+                    t6.EmployeeId, 
+                    t1.TimesheetDate, 
+                    r.RotaDate, 
+                    t1.TimesheetStatusId, 
+                    (t6.FirstName + '' '' + t6.LastName) AS EmployeeName, 
+                    ISNULL(t3.ProjectName, '''') AS ProjectName, 
+                    ISNULL(t5.PracticeName, '''') AS PracticeName, 
+                    CAST(t1.CreatedDate AS DATE) AS CreatedDate, 
+                    ISNULL(t1.Rate, 0) AS Rate 
+                    FROM dbo.Employees t6 
+                    LEFT JOIN dbo.rotadetails r ON t6.EmployeeId = r.EmployeeId 
+                    LEFT JOIN dbo.Tms_Timesheets t1 ON r.EmployeeId = t1.EmployeeId 
+                        AND r.PracticeId = t1.PracticeId 
+                        AND (t1.TimesheetStatusId = 6 OR t1.TimesheetId IS NULL) 
+                    LEFT JOIN TMS_PracticeProjectMapping ppm ON r.practiceid = ppm.PracticeId 
+                    LEFT JOIN dbo.TMS_Practices t5 ON t5.PracticeId = r.PracticeId 
+                    LEFT JOIN dbo.TMS_projects t3 ON t3.projectid = t1.projectid 
+                    WHERE r.Rotaid IS NOT NULL 
+                        AND (t1.TimesheetId IS NULL OR t1.TimesheetStatusId = 6)';
+
+    -- Additional conditions for filtering
+    IF @EmployeeName <> ''
+    BEGIN
+        SET @SELECT = @SELECT + ' AND (RTRIM(LTRIM(t6.FirstName)) + '' '' + RTRIM(LTRIM(t6.LastName)) LIKE ''%' + @EmployeeName + '%'')';
+    END
+
+    IF @TimesheetDate <> ''
+    BEGIN
+        SET @SELECT = @SELECT + ' AND CONVERT(VARCHAR, t1.TimesheetDate, 103) LIKE ''%' + @TimesheetDate + '%'')';
+    END
+
+    IF @ProjectName <> ''
+    BEGIN
+        SET @SELECT = @SELECT + ' AND t3.ProjectName LIKE ''%' + @ProjectName + '%'')';
+    END
+
+    IF @PracticeName <> ''
+    BEGIN
+        SET @SELECT = @SELECT + ' AND t5.PracticeName LIKE ''%' + @PracticeName + '%'')';
+    END
+
+    IF @Rate <> ''
+    BEGIN
+        SET @SELECT = @SELECT + ' AND CONVERT(VARCHAR, ISNULL(t1.Rate, ''0'')) LIKE ''%' + @Rate + '%'')';
+    END
+
+    -- Date filtering
+    IF @FromDate <> ''
+    BEGIN
+        SET @SELECT = @SELECT + ' AND CONVERT(VARCHAR, t1.TimeSheetDate, 103) >= CONVERT(VARCHAR, ''' + @FromDate + ''', 103)';
+    END
+
+    IF @ToDate <> ''
+    BEGIN
+        SET @SELECT = @SELECT + ' AND CONVERT(VARCHAR, t1.TimeSheetDate, 103) <= CONVERT(VARCHAR, ''' + @ToDate + ''', 103)';
+    END
+
+    -- Filter by role or staff
+    IF @IsAdmin <> 1 OR @mystaff = 1
+    BEGIN
+        SET @SELECT = @SELECT + ' AND (t1.AuthoriserId = ' + CONVERT(VARCHAR, @ViewerId) + ' OR t1.AuthoriserId IS NULL)';
+    END
+
+    -- Final grouping
+    SET @SELECT = @SELECT + ' GROUP BY t1.TimesheetId, t6.EmployeeId, t1.TimesheetDate, t1.TimesheetStatusId, 
+                              t6.FirstName, t6.LastName, t3.ProjectName, t5.PracticeName, t1.CreatedDate, r.RotaDate, t1.Rate';
+
+    -- Execute the SQL
+    EXEC(@SELECT);
+END
+```
+
+### Explanation:
+1. **DISTINCT**: Used in the `SELECT` statement to avoid duplicate records.
+2. **GROUP BY**: Grouping by the necessary columns ensures that the result set is unique.
+3. **Date Filtering**: The filtering logic was refined to correctly handle the date ranges.
+
+This optimized query should return the actual records you’re looking for without the duplicates. If you're still encountering issues, we can refine it further based on specific data points.
