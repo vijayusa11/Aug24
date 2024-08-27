@@ -1,0 +1,8 @@
+SET @SELECT = @SELECT + ' FROM dbo.Employees t6 WITH (NOLOCK) ' 
+SET @SELECT = @SELECT + ' LEFT JOIN dbo.rotadetails r WITH (NOLOCK) ON t6.EmployeeId = r.EmployeeId ' 
+SET @SELECT = @SELECT + ' LEFT JOIN dbo.Tms_Timesheets t1 WITH (NOLOCK) ON r.EmployeeId = t1.EmployeeId AND r.PracticeId = t1.PracticeId AND (t1.TimesheetStatusId = 6 OR t1.TimesheetId IS NULL) ' 
+SET @SELECT = @SELECT + ' LEFT JOIN TMS_PracticeProjectMapping ppm ON r.practiceid = ppm.PracticeId ' 
+SET @SELECT = @SELECT + ' LEFT JOIN dbo.TMS_Practices t5 WITH (NOLOCK) ON t5.PracticeId = r.PracticeId ' 
+SET @SELECT = @SELECT + ' LEFT JOIN dbo.TMS_TimesheetStatuses t9 WITH (NOLOCK) ON t9.StatusId = t1.TimesheetStatusId ' 
+SET @SELECT = @SELECT + ' LEFT JOIN dbo.TMS_projects t3 WITH (NOLOCK) ON t3.projectid = t1.projectid ' 
+SET @SELECT = @SELECT + ' WHERE (r.Rotaid IS NOT NULL) AND (t1.TimesheetId IS NULL OR t9.StatusId = 6) '
