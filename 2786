@@ -1,0 +1,64 @@
+SELECT DISTINCT
+    t6.EmployeeId, 
+    t1.TimesheetId, 
+    t1.TimesheetDate,  
+    r.RotaDate AS RotaDate, 
+    t1.TimesheetStatusId, 
+    (t6.FirstName + ' ' + t6.LastName) AS EmployeeName, 
+    t3.projectname,  
+    ISNULL(t5.PracticeName, '') AS PracticeName, 
+    CAST(t1.CreatedDate AS date) AS CreatedDate, 
+    ISNULL(t1.Rate, 0) AS Rate  
+FROM  
+    dbo.Employees t6 WITH (NOLOCK)
+LEFT JOIN 
+    dbo.rotadetails r WITH (NOLOCK) ON t6.EmployeeId = r.EmployeeId   
+LEFT JOIN 
+    dbo.Tms_Timesheets t1 WITH (NOLOCK) 
+    ON r.EmployeeId = t1.EmployeeId 
+    AND r.PracticeId = t1.PracticeId 
+    AND (t1.TimesheetStatusId = 6 OR t1.TimesheetId IS NULL)
+LEFT JOIN 
+    TMS_PracticeProjectMapping ppm ON r.practiceid = ppm.PracticeId    
+LEFT JOIN 
+    dbo.TMS_Practices t5 WITH (NOLOCK) ON t5.PracticeId = r.PracticeId   
+LEFT JOIN 
+    dbo.TMS_TimesheetStatuses t9 WITH (NOLOCK) ON t9.StatusId = t1.TimesheetStatusId  
+LEFT JOIN 
+    dbo.TMS_projects t3 WITH (NOLOCK) ON t3.projectid = t1.projectid  
+WHERE  
+    r.Rotaid IS NOT NULL 
+    AND (t1.TimesheetId IS NULL OR t9.StatusId = 6)  
+    AND (t1.TimeSheetDate IS NULL OR 
+        (CONVERT(VARCHAR, t1.TimeSheetDate, 103) >= CONVERT(VARCHAR, '01/08/2024') 
+        AND CONVERT(VARCHAR, t1.TimeSheetDate, 103) <= CONVERT(VARCHAR, '31/08/2024')))
+GROUP BY   
+    t1.TimesheetId,  
+    t6.EmployeeId,  
+    t1.TimesheetDate, 
+    t1.TimesheetStatusId,  
+    t6.FirstName, 
+    t6.Lastname, 
+    t3.projectname, 
+    t5.PracticeName, 
+    t1.CreatedDate, 
+    t1.Rate, 
+    r.RotaDate;
+
+
+
+Update below join as can get data as per above script write line by line for below join 
+
+
+	set @SELECT = @SELECT + ' FROM  dbo.Employees t6 with(nolock)  '        
+  set @SELECT = @SELECT + ' LEFT JOIN dbo.rotadetails r with(nolock) ON t6.EmployeeId = r.EmployeeId  '     
+   set @SELECT = @SELECT + ' LEFT JOIN dbo.Tms_Timesheets t1 with(nolock) ON r.EmployeeId = t1.EmployeeId AND r.PracticeId = t1.PracticeId and TimesheetStatusId = 6'       
+     
+  set @SELECT = @SELECT + ' LEFT JOIN TMS_PracticeProjectMapping ppm on r.practiceid = ppm.PracticeId   '      
+  set @SELECT = @SELECT + ' LEFT JOIN dbo.TMS_Practices t5 with(nolock) ON t5.PracticeId = r.PracticeId  '        
+    
+  set @SELECT = @SELECT + ' LEFT JOIN dbo.TMS_TimesheetStatuses t9 with(nolock) ON t9.StatusId = t1.TimesheetStatusId '    
+  set @SELECT = @SELECT + ' LEFT JOIN dbo.TMS_projects t3 with(nolock) ON t3.projectid = t1.projectid '        
+    
+
+  set @SELECT = @SELECT + ' WHERE  (r.Rotaid IS NOT null) AND (t1.TimesheetId IS NULL OR t9.StatusId = 6) '      
