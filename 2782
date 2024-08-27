@@ -1,0 +1,16 @@
+SELECT  distinct   t6.EmployeeId, t1.TimesheetId, t1.TimesheetDate ,  r.RotaDate as RotaDate, t1.TimesheetStatusId, 
+(t6.FirstName + ' ' + t6.LastName) AS EmployeeName, t3.projectname ,  isnull(t5.PracticeName, '') PracticeName, 
+cast(t1.CreatedDate as date) AS CreatedDate, isnull(t1.Rate, 0) Rate  FROM  dbo.Employees t6 with(nolock)   
+LEFT JOIN dbo.rotadetails r with(nolock) ON t6.EmployeeId = r.EmployeeId   
+LEFT JOIN dbo.Tms_Timesheets t1 with(nolock) ON r.EmployeeId = t1.EmployeeId AND r.PracticeId = t1.PracticeId and TimesheetStatusId = 6 
+LEFT JOIN TMS_PracticeProjectMapping ppm on r.practiceid = ppm.PracticeId    
+LEFT JOIN dbo.TMS_Practices t5 with(nolock) ON t5.PracticeId = r.PracticeId   
+LEFT JOIN dbo.TMS_TimesheetStatuses t9 with(nolock) ON t9.StatusId = t1.TimesheetStatusId  
+LEFT JOIN dbo.TMS_projects t3 with(nolock) ON t3.projectid = t1.projectid  
+WHERE  (Rotaid IS NOT null) AND (t1.TimesheetId IS NULL OR t9.StatusId = 6)  
+and CONVERT(VARCHAR,t1.TimeSheetDate,103) >=  CONVERT(VARCHAR,'01/08/2024')  and CONVERT(VARCHAR,t1.TimeSheetDate,103) <= CONVERT(VARCHAR,'31/08/2024')  
+GROUP BY   t1.TimesheetId,  t6.EmployeeId,  t1.TimesheetDate, t1.TimesheetStatusId,  t6.FirstName, t6.Lastname, t3.projectname, t5.PracticeName, 
+t1.CreatedDate, t1.Rate, r.RotaDate
+
+want to make query where t1.TimesheetId is null then r.RotaDate data will be shown but as of now r.RotaDate is not showing only data showing where  
+t1.TimesheetId data exist
