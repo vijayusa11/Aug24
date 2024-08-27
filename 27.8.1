@@ -1,0 +1,94 @@
+
+when we debug code getting values -
+SelectedEmployeesIds values we getting - 1012,3,1017,1027,1026,1,1018,1019,1024,4
+SelectedFields values we getting - EmployeeCode,RegionId,ContractorCode,UserName,EmailAddress,FirstName,LastName,DepartmentName
+but when check here adapter.Fill(ds); in ds there are 7 rows only but we pass 10 employeesid but getting max 7 results only
+
+here is code -
+public DataSet ExportDynamicReport(string SelectedEmployeesIds, string SelectedFields)
+{
+    DataSet ds = new DataSet();
+    
+    using (var connection = new SqlConnection(connectionStr))
+    {
+        connection.Open();
+
+        string storedProc = "spGetEmployeeListWithBankExport";
+        using (SqlCommand command = new SqlCommand(storedProc, connection))
+        {
+            command.CommandType = CommandType.StoredProcedure;
+
+            // Add parameters to the command
+         
+            command.Parameters.AddWithValue("@employeeIds", SelectedEmployeesIds);
+            command.Parameters.AddWithValue("@ColumnNames", SelectedFields);
+            //command.Parameters.AddWithValue("@TotalCount", ParameterDirection.Output);
+
+            using (SqlDataAdapter adapter = new SqlDataAdapter(command))
+            {
+                adapter.Fill(ds);
+            }
+
+            // Check the output parameter for row count (optional, for debugging)
+            //int rowCount = (int)command.Parameters["@TotalCount"].Value;
+        }
+        connection.Close();
+    }
+
+    return ds;
+}
+
+here is SP -
+USE [CPSIntranet_Demo]
+GO
+/****** Object:  StoredProcedure [dbo].[spGetEmployeeListWithBankExport]    Script Date: 27-08-2024 12:31:54 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+-- exec [dbo].[spGetEmployeeListWithBankExport] '1,11,1012,1013,1014,1015,1016,1017,1018,1019,1020,1021,1022,1023,1024,1025,1026,1027','EmployeeCode,ContractorCode,RegionId,LineManager,RoleId'
+-- exec [dbo].[spGetEmployeeListWithBankExport] '1,11,1012,1013,1014,1015,1016,1017,1019','EmployeeCode,ContractorCode,RegionId,LineManager,RoleId'
+
+ALTER PROCEDURE [dbo].[spGetEmployeeListWithBankExport]
+(
+	@employeeIds nvarchar(200), 
+	@ColumnNames nvarchar(1000)
+)
+AS     
+BEGIN
+	
+	DECLARE @PrefixedColumnNames VARCHAR(1000);
+	DECLARE @Select nvarchar(2000);
+	
+    IF @ColumnNames IS NOT NULL AND LEN(@ColumnNames) > 0
+    BEGIN
+        SET @PrefixedColumnNames = 'E.' + REPLACE(@ColumnNames, ',', ', E.');
+    END
+    
+	SET @PrefixedColumnNames = REPLACE(@PrefixedColumnNames, 'E.RegionId', 'R.RegionName as RegionId')
+	SET @PrefixedColumnNames = REPLACE(@PrefixedColumnNames, 'E.LineManager', 'LI.FirstName + '' '' + LI.LastName as LineManager')
+	SET @PrefixedColumnNames = REPLACE(@PrefixedColumnNames, 'E.RoleId', 'RL.RoleName as RoleId')
+
+
+	SET @Select = 'SELECT DISTINCT ' + @PrefixedColumnNames + ' FROM Employees AS E'
+	SET @Select = @Select + ' 	LEFT JOIN Employees AS LI ON E.LineManagerId = LI.EmployeeId 
+								LEFT JOIN Region R ON E.RegionId = R.RegionId
+								LEFT JOIN Roles RL ON E.RoleId = RL.RoleId'
+	
+	
+	IF @employeeIds <>''
+	BEGIN
+		SET @Select = @Select + ' 	where E.EmployeeId in  (SELECT splitdata FROM fnSplitString(''' + convert(varchar,@employeeIds) + ''',''COMMA'')) '
+	END
+	
+	
+
+	EXEC (@Select) 
+	--PRINT @Select
+END
+
+what can i do so when i am goint to pass 10, 20 or 100 employeeid and get all results where as of now getting max 7 records only
+
+
