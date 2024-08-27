@@ -1,0 +1,60 @@
+The issue lies in the `LEFT JOIN` condition and how `WHERE` conditions are applied. Since you want to display `RotaDate` even when `t1.TimesheetId` is `NULL`, but it's only showing data when `t1.TimesheetId` exists, the filtering in the `WHERE` clause is likely causing the problem.
+
+When you apply conditions in the `WHERE` clause, it effectively converts your `LEFT JOIN` to an `INNER JOIN` for those conditions. Specifically, the condition `CONVERT(VARCHAR,t1.TimeSheetDate,103) >= CONVERT(VARCHAR,'01/08/2024')` and `t1.TimesheetId IS NULL OR t9.StatusId = 6` is problematic.
+
+To fix this, you need to move those conditions to the `ON` clause of the join or use `OR` conditions carefully in the `WHERE` clause. Here’s how you can modify your query:
+
+```sql
+SELECT DISTINCT
+    t6.EmployeeId, 
+    t1.TimesheetId, 
+    t1.TimesheetDate,  
+    r.RotaDate AS RotaDate, 
+    t1.TimesheetStatusId, 
+    (t6.FirstName + ' ' + t6.LastName) AS EmployeeName, 
+    t3.projectname,  
+    ISNULL(t5.PracticeName, '') AS PracticeName, 
+    CAST(t1.CreatedDate AS date) AS CreatedDate, 
+    ISNULL(t1.Rate, 0) AS Rate  
+FROM  
+    dbo.Employees t6 WITH (NOLOCK)
+LEFT JOIN 
+    dbo.rotadetails r WITH (NOLOCK) ON t6.EmployeeId = r.EmployeeId   
+LEFT JOIN 
+    dbo.Tms_Timesheets t1 WITH (NOLOCK) 
+    ON r.EmployeeId = t1.EmployeeId 
+    AND r.PracticeId = t1.PracticeId 
+    AND (t1.TimesheetStatusId = 6 OR t1.TimesheetId IS NULL)
+LEFT JOIN 
+    TMS_PracticeProjectMapping ppm ON r.practiceid = ppm.PracticeId    
+LEFT JOIN 
+    dbo.TMS_Practices t5 WITH (NOLOCK) ON t5.PracticeId = r.PracticeId   
+LEFT JOIN 
+    dbo.TMS_TimesheetStatuses t9 WITH (NOLOCK) ON t9.StatusId = t1.TimesheetStatusId  
+LEFT JOIN 
+    dbo.TMS_projects t3 WITH (NOLOCK) ON t3.projectid = t1.projectid  
+WHERE  
+    r.Rotaid IS NOT NULL 
+    AND (t1.TimesheetId IS NULL OR t9.StatusId = 6)  
+    AND (t1.TimeSheetDate IS NULL OR 
+        (CONVERT(VARCHAR, t1.TimeSheetDate, 103) >= CONVERT(VARCHAR, '01/08/2024') 
+        AND CONVERT(VARCHAR, t1.TimeSheetDate, 103) <= CONVERT(VARCHAR, '31/08/2024')))
+GROUP BY   
+    t1.TimesheetId,  
+    t6.EmployeeId,  
+    t1.TimesheetDate, 
+    t1.TimesheetStatusId,  
+    t6.FirstName, 
+    t6.Lastname, 
+    t3.projectname, 
+    t5.PracticeName, 
+    t1.CreatedDate, 
+    t1.Rate, 
+    r.RotaDate;
+```
+
+### Key changes:
+1. **Condition on `TimeSheetDate`:** Moved the `CONVERT(VARCHAR, t1.TimeSheetDate, 103)` condition into the `WHERE` clause with an additional `IS NULL` check.
+2. **Condition on `TimesheetStatusId`:** Retained the original condition `(t1.TimesheetStatusId = 6 OR t1.TimesheetId IS NULL)` in the `ON` clause.
+
+These changes ensure that `r.RotaDate` will be shown even when `t1.TimesheetId` is `NULL`. The condition on `t1.TimeSheetDate` will be applied only if `t1.TimesheetId` is not `NULL`.
