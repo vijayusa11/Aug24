@@ -1,0 +1,27 @@
+SET @SELECT = 'SELECT t6.EmployeeId, t1.TimesheetId, t1.TimesheetDate, ' + 
+              'MIN(r.RotaDate) as RotaDate, t1.TimesheetStatusId, ' + 
+              '(t6.FirstName + '' '' + t6.LastName) AS EmployeeName, ' + 
+              'ISNULL(t3.ProjectName, '''') AS ProjectName, ' + 
+              'ISNULL(t5.PracticeName, '''') AS PracticeName, ' + 
+              'CAST(t1.CreatedDate as date) AS CreatedDate, ' + 
+              'ISNULL(t1.Rate, 0) AS Rate ' +
+              'FROM dbo.Employees t6 WITH (NOLOCK) ' +
+              'LEFT JOIN dbo.rotadetails r WITH (NOLOCK) ON t6.EmployeeId = r.EmployeeId ' +
+              'LEFT JOIN dbo.Tms_Timesheets t1 WITH (NOLOCK) ON r.EmployeeId = t1.EmployeeId ' +
+              'AND r.PracticeId = t1.PracticeId ' +
+              'AND (t1.TimesheetStatusId = 6 OR t1.TimesheetId IS NULL) ' +
+              'LEFT JOIN TMS_PracticeProjectMapping ppm ON r.PracticeId = ppm.PracticeId ' +
+              'LEFT JOIN dbo.TMS_Practices t5 WITH (NOLOCK) ON t5.PracticeId = r.PracticeId ' +
+              'LEFT JOIN dbo.TMS_projects t3 WITH (NOLOCK) ON t3.ProjectId = t1.ProjectId ' +
+              'WHERE r.RotaId IS NOT NULL ' +
+              'AND (t1.TimesheetId IS NULL OR t1.TimesheetStatusId = 6) ' +
+              'AND (t1.TimeSheetDate IS NULL OR ' +
+              'CONVERT(VARCHAR, t1.TimeSheetDate, 103) >= CONVERT(VARCHAR, ''' + @FromDate + ''') ' +
+              'AND CONVERT(VARCHAR, t1.TimeSheetDate, 103) <= CONVERT(VARCHAR, ''' + @ToDate + ''')) ';
+
+-- Additional filters here...
+
+-- Adjust the GROUP BY and aggregation to eliminate duplicates
+SET @SELECT = @SELECT + 'GROUP BY t1.TimesheetId, t6.EmployeeId, t1.TimesheetDate, ' + 
+              't1.TimesheetStatusId, t6.FirstName, t6.LastName, t3.ProjectName, ' + 
+              't5.PracticeName, t1.CreatedDate, t1.Rate';
