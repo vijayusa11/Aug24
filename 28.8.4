@@ -1,0 +1,32 @@
+do one thing get every day max BatchId data into output file so we can get 1 file for every day that will last file data of that day
+
+
+private DataTable FetchDataFromDatabase()
+{
+    var dataTable = new DataTable();
+
+    using (var connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString))
+    {
+        connection.Open();
+        string query = @"
+    select Date, Agent, TimesheetOwner, TotalTalkingTime, Division FROM OutputFileDetails
+    where DATE < CAST(GETDATE() AS DATE)
+    union all
+    select Date, Agent, TimesheetOwner, TotalTalkingTime, Division FROM OutputFileDetails
+    where BatchId = (
+        select TOP 1 BatchId 
+        from OutputFileDetails 
+        where DATE = CAST(GETDATE() AS DATE)
+        order by CreatedDateTime DESC)";
+
+        using (var command = new SqlCommand(query, connection))
+        {
+            using (var adapter = new SqlDataAdapter(command))
+            {
+                adapter.Fill(dataTable);
+            }
+        }
+    }
+
+    return dataTable;
+}
