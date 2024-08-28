@@ -1,0 +1,54 @@
+To ensure that you get only the last batch of data for each day (including today), you can modify the `FetchDataFromDatabase` method to select the maximum `BatchId` for each day. This will ensure that the output file contains data from the last batch of each day.
+
+Here’s how you can adjust your query:
+
+### Updated `FetchDataFromDatabase` Method:
+
+```csharp
+private DataTable FetchDataFromDatabase()
+{
+    var dataTable = new DataTable();
+
+    using (var connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString))
+    {
+        connection.Open();
+
+        // Query to fetch the last batch of data for each day
+        string query = @"
+            SELECT Date, Agent, TimesheetOwner, TotalTalkingTime, Division 
+            FROM OutputFileDetails
+            WHERE BatchId IN (
+                SELECT MAX(BatchId)
+                FROM OutputFileDetails
+                GROUP BY CAST(CreatedDateTime AS DATE)
+            )";
+
+        using (var command = new SqlCommand(query, connection))
+        {
+            using (var adapter = new SqlDataAdapter(command))
+            {
+                adapter.Fill(dataTable);
+            }
+        }
+    }
+
+    return dataTable;
+}
+```
+
+### Explanation:
+- **Selecting the Last Batch per Day**: 
+  - The subquery inside the `IN` clause (`SELECT MAX(BatchId) FROM OutputFileDetails GROUP BY CAST(CreatedDateTime AS DATE)`) retrieves the highest `BatchId` for each unique date, ensuring you only get the last batch of data for each day.
+  
+- **Filtering by `BatchId`**: 
+  - The outer query then selects records from `OutputFileDetails` where the `BatchId` matches any of these maximum values, effectively filtering the dataset to include only the last batch for each day.
+
+### Benefits:
+- **One Record per Day**: This approach guarantees that for each day, only the last set of inserted records (as determined by `BatchId`) will be included in the output file.
+  
+- **Efficiency**: By grouping data by date and selecting the maximum `BatchId`, this method is efficient and ensures accurate data retrieval.
+
+### Testing:
+- Ensure that when new batches are inserted into the table, they are assigned incrementally higher `BatchId`s, and verify that the output file correctly reflects the last batch for each day.
+
+This adjustment should give you exactly what you need: an output file containing only the most recent batch of data for each day, including today.
