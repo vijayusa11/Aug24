@@ -1,0 +1,61 @@
+USE [CPSIntranet_Demo]
+GO
+/****** Object:  StoredProcedure [dbo].[spGetEmployeeListWithBankExport]    Script Date: 28-08-2024 12:35:29 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+-- exec [dbo].[spGetEmployeeListWithBankExport] '','EmployeeCode,FirstName,ContractorCode,RegionId,LineManager,RoleId'
+
+
+
+ALTER PROCEDURE [dbo].[spGetEmployeeListWithBankExport]
+(
+	@employeeIds nvarchar(1000), 
+	@ColumnNames nvarchar(1000)
+)
+AS     
+BEGIN
+	
+	DECLARE @PrefixedColumnNames VARCHAR(1000);
+	DECLARE @Select nvarchar(2000);
+	
+    IF @ColumnNames IS NOT NULL AND LEN(@ColumnNames) > 0
+    BEGIN
+        SET @PrefixedColumnNames = 'E.' + REPLACE(@ColumnNames, ',', ', E.');
+    END
+    
+	SET @PrefixedColumnNames = REPLACE(@PrefixedColumnNames, 'E.RegionId', 'R.RegionName as RegionId')
+	SET @PrefixedColumnNames = REPLACE(@PrefixedColumnNames, 'E.LineManager', 'LI.FirstName + '' '' + LI.LastName as LineManager')
+	SET @PrefixedColumnNames = REPLACE(@PrefixedColumnNames, 'E.RoleId', 'RL.RoleName as RoleId')
+
+
+	SET @Select = 'SELECT DISTINCT ' + @PrefixedColumnNames + ' FROM Employees AS E'
+	SET @Select = @Select + ' 	LEFT JOIN Employees AS LI ON E.LineManagerId = LI.EmployeeId 
+								LEFT JOIN Region R ON E.RegionId = R.RegionId
+								LEFT JOIN Roles RL ON E.RoleId = RL.RoleId'
+	
+	
+	IF @employeeIds <>''
+	BEGIN
+	
+	
+	SET @Select = @Select + ' 	where E.EmployeeId in  (SELECT splitdata FROM fnSplitString(''' + convert(varchar(2000),@employeeIds) + ''',''COMMA'')) '
+
+	
+		
+	END
+	
+	
+
+	EXEC (@Select) 
+--	PRINT @Select
+END
+
+
+want to add this where condition in above SP -
+WHERE (E.IsDelete IS NULL OR E.IsDelete = 0) AND E.STATUSID <> 2
+
+write me updated SP 
