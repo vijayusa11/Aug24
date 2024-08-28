@@ -1,0 +1,55 @@
+To ensure that the output file includes records from all previous days (up to and including yesterday) and the last batch of today's data, you may need to adjust the logic in the `FetchDataFromDatabase` method. The current query may not be correctly handling the date filtering, especially when the date changes.
+
+Here's how you can modify the method:
+
+### Adjusted `FetchDataFromDatabase` Method:
+```csharp
+private DataTable FetchDataFromDatabase()
+{
+    var dataTable = new DataTable();
+
+    using (var connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString))
+    {
+        connection.Open();
+
+        // Fetch all data until yesterday
+        string query = @"
+            SELECT * FROM OutputFileDetails
+            WHERE Date < CAST(GETDATE() AS DATE)
+            UNION ALL
+            -- Fetch the last batch of today's data
+            SELECT * FROM OutputFileDetails
+            WHERE BatchId = (
+                SELECT TOP 1 BatchId 
+                FROM OutputFileDetails 
+                WHERE Date = CAST(GETDATE() AS DATE)
+                ORDER BY CreatedDateTime DESC
+            )";
+
+        using (var command = new SqlCommand(query, connection))
+        {
+            using (var adapter = new SqlDataAdapter(command))
+            {
+                adapter.Fill(dataTable);
+            }
+        }
+    }
+
+    return dataTable;
+}
+```
+
+### Explanation:
+- **Date Filtering**: The first part of the query (`WHERE Date < CAST(GETDATE() AS DATE)`) selects all records from any date before today.
+- **Today's Last Batch**: The second part of the query fetches all rows from the last inserted batch of today's data, ensuring that you get the most recent file's data.
+
+### Additional Checks:
+- **Verify Date Formats**: Ensure that the `Date` column is storing dates correctly and that your system’s regional settings align with the SQL Server’s date handling. The `CAST(GETDATE() AS DATE)` function is used to compare dates without considering the time, ensuring that only the date part is evaluated.
+- **Database Time Zone**: If your SQL Server is in a different time zone from your application, there might be discrepancies in date handling, so make sure the server time is correctly aligned with your requirements.
+
+### Testing:
+- **Test Across Midnight**: Insert data before and after midnight to ensure that the records are being correctly filtered and included in the output file.
+- **Verify Yesterday's Data**: Manually check that all records up to yesterday are included in the output file when you run the method after midnight.
+
+### Summary:
+This modified method should ensure that your output Excel file contains all records up to yesterday and the last inserted batch from today, regardless of when the data is processed.
