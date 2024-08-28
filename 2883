@@ -1,0 +1,169 @@
+To ensure that the output file contains all rows from the last input file inserted into the database, not just the last row, you should modify the logic in the `FetchDataFromDatabase` method. 
+
+### 1. Understanding the Requirement:
+- **All Previous Data:** You want all data from previous days up to yesterday.
+- **Today's Last Inserted File:** You want all rows from the last file inserted today, not just a single row.
+
+### 2. Steps to Achieve This:
+
+1. **Track the File Inserts:** Add a column to your `OutputFileDetails` table to track each batch of inserts (e.g., a `BatchId` column or `FileIdentifier` column).
+2. **Identify the Last Batch of Today:** In the `FetchDataFromDatabase` method, fetch all rows from the last batch of today's data.
+
+### 3. Modifying the Table:
+Add a `BatchId` column to identify different insert batches (i.e., each file):
+
+```sql
+ALTER TABLE [dbo].[OutputFileDetails]
+ADD BatchId INT;
+```
+
+### 4. Update the `InsertIntoDatabase` Method:
+You need to generate a unique `BatchId` each time you insert data from a new file:
+
+```csharp
+private void InsertIntoDatabase(string csvFilePath)
+{
+    try
+    {
+        if (!File.Exists(csvFilePath))
+        {
+            LogToErrorFile($"File not found: {csvFilePath}");
+            return;
+        }
+
+        using (var connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString))
+        {
+            connection.Open();
+
+            // Generate a new BatchId for this file insert
+            int batchId = GenerateNewBatchId(connection);
+
+            string insertQuery = @"
+                INSERT INTO OutputFileDetails (Date, Agent, TimesheetOwner, TotalTalkingTime, Division, CreatedDateTime, BatchId)
+                VALUES (@Date, @Agent, @TimesheetOwner, @TotalTalkingTime, @Division, @CreatedDateTime, @BatchId)";
+
+            using (var insertCommand = new SqlCommand(insertQuery, connection))
+            {
+                using (var reader = new StreamReader(csvFilePath))
+                {
+                    // Skip the first 6 lines of metadata
+                    for (int i = 0; i < 6; i++)
+                    {
+                        reader.ReadLine();
+                    }
+
+                    reader.ReadLine();
+
+                    while (!reader.EndOfStream)
+                    {
+                        var line = reader.ReadLine();
+                        var values = line.Split(',');
+
+                        if (values.Length < 8)
+                        {
+                            LogToErrorFile($"Skipping line due to insufficient values: {line}");
+                            continue;
+                        }
+
+                        var agentExtensionWithOwner = values[0].Trim('"');
+                        var timesheetOwner = values[1].Trim('"');
+                        var len = values.Length;
+                        var totalTalkingTime = values[len - 1].Trim();
+
+                        var parts = agentExtensionWithOwner.Split(' ', 2);
+
+                        if (parts.Length < 2)
+                        {
+                            LogToErrorFile($"Skipping line due to invalid agentExtensionWithOwner format: {line}");
+                            continue;
+                        }
+
+                        var agentExtension = parts[0].Trim();
+                        var divisionValue = parts[1].Trim('"');
+
+                        if (!string.IsNullOrEmpty(agentExtension))
+                        {
+                            insertCommand.Parameters.Clear();
+                            insertCommand.Parameters.AddWithValue("@Date", DateTime.Today);
+                            insertCommand.Parameters.AddWithValue("@Agent", agentExtension);
+                            insertCommand.Parameters.AddWithValue("@TimesheetOwner", timesheetOwner);
+                            insertCommand.Parameters.AddWithValue("@TotalTalkingTime", totalTalkingTime);
+                            insertCommand.Parameters.AddWithValue("@Division", divisionValue);
+                            insertCommand.Parameters.AddWithValue("@CreatedDateTime", DateTime.Now);
+                            insertCommand.Parameters.AddWithValue("@BatchId", batchId);
+
+                            insertCommand.ExecuteNonQuery();
+                        }
+                        else
+                        {
+                            LogToErrorFile($"Skipping line due to empty agentExtension or timesheetOwner: {line}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        LogToErrorFile($"General Exception: {ex.Message}");
+        StartConsoleWriting(ex.Message);
+    }
+}
+
+private int GenerateNewBatchId(SqlConnection connection)
+{
+    // Generate a new BatchId based on the maximum existing BatchId in the table
+    string query = "SELECT ISNULL(MAX(BatchId), 0) + 1 FROM OutputFileDetails";
+    using (var command = new SqlCommand(query, connection))
+    {
+        return (int)command.ExecuteScalar();
+    }
+}
+```
+
+### 5. Modifying the `FetchDataFromDatabase` Method:
+Fetch all rows from the last batch of today’s data:
+
+```csharp
+private DataTable FetchDataFromDatabase()
+{
+    var dataTable = new DataTable();
+
+    using (var connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString))
+    {
+        connection.Open();
+
+        // Fetch the last batch inserted today
+        string query = @"
+            SELECT * FROM OutputFileDetails
+            WHERE Date < CAST(GETDATE() AS DATE)
+            UNION ALL
+            SELECT * FROM OutputFileDetails
+            WHERE BatchId = (
+                SELECT TOP 1 BatchId 
+                FROM OutputFileDetails 
+                WHERE Date = CAST(GETDATE() AS DATE)
+                ORDER BY CreatedDateTime DESC
+            )";
+
+        using (var command = new SqlCommand(query, connection))
+        {
+            using (var adapter = new SqlDataAdapter(command))
+            {
+                adapter.Fill(dataTable);
+            }
+        }
+    }
+
+    return dataTable;
+}
+```
+
+### Explanation:
+- **BatchId Generation**: Every time you insert a new file, a unique `BatchId` is generated. This groups all rows from a single file under the same `BatchId`.
+- **Fetching Data**: The `FetchDataFromDatabase` method pulls all data from previous days and all rows associated with the most recent `BatchId` from today.
+
+### Summary:
+This approach ensures that your output file contains:
+1. **All data from previous days (up to and including yesterday)**.
+2. **All rows from the last file inserted today**.
