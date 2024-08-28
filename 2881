@@ -1,0 +1,196 @@
+we are getting input file everyday miltiple times like 30-40 times, so everytime insert input file into sql server database table.
+now i want to create output file of all data of yesterday date and last file data of today date. and all data will in table 
+as i think we can create a another table with id column and created datetime column and for output file we can join that id with 
+OutputFileDetails table so it can get data of yesterday date and latest data of today's date.
+i guess we have to write logic in FetchDataFromDatabase method to get last file data for today and all remaninng data till yesterday.
+
+
+Table create code -
+CREATE TABLE [dbo].[OutputFileDetails](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[Date] [date] NOT NULL,
+	[Agent] [nvarchar](255) NOT NULL,
+	[TimesheetOwner] [nvarchar](255) NOT NULL,
+	[TotalTalkingTime] [nvarchar](255) NOT NULL,
+	[Division] [nvarchar](255) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+Methods -
+ private void InsertIntoDatabase(string csvFilePath)
+ {
+     try
+     {
+         if (!File.Exists(csvFilePath))
+         {
+             LogToErrorFile($"File not found: {csvFilePath}");
+             return;
+         }
+
+         using (var connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString))
+         {
+             connection.Open();
+
+             string insertQuery = @"INSERT INTO OutputFileDetails (Date, Agent, TimesheetOwner, TotalTalkingTime, Division)
+                          VALUES (@Date, @Agent, @TimesheetOwner, @TotalTalkingTime, @Division)";
+
+             using (var insertCommand = new SqlCommand(insertQuery, connection))
+             {
+                 using (var reader = new StreamReader(csvFilePath))
+                 {
+                     // Skip the first 6 lines of metadata
+                     for (int i = 0; i < 6; i++)
+                     {
+                         reader.ReadLine();
+                     }
+                                                
+                     reader.ReadLine();
+
+                     while (!reader.EndOfStream)
+                     {
+                         var line = reader.ReadLine();
+                         var values = line.Split(',');
+
+                         if (values.Length < 8)
+                         {
+                             LogToErrorFile($"Skipping line due to insufficient values: {line}");
+                             continue;
+                         }
+
+                         var agentExtensionWithOwner = values[0].Trim('"');
+                         var timesheetOwner = values[1].Trim('"');
+                         // var timesheetOwner = values[0].Split(' ', 3)[1].Trim();
+                         // var timesheetOwner = values[0].Trim(',','"');
+                         //   var timesheetOwner = values[0].Split(',')[1].Trim();
+
+                         //    var  totalTalkingTime = timesheetOwner==null ? values[8].Trim() : values[9].Trim();
+                         var len = values.Length;
+                         var totalTalkingTime = values[len-1].Trim();
+
+                         // Split agent and owner
+                         var parts = agentExtensionWithOwner.Split(' ', 2);
+
+                         if (parts.Length < 2)
+                         {
+                             LogToErrorFile($"Skipping line due to invalid agentExtensionWithOwner format: {line}");
+                             continue;
+                         }
+
+                         var agentExtension = parts[0].Trim();
+                         var divisionValue = parts[1].Trim('"');
+                         // var timesheetOwner = parts[2].Trim(',');
+                         // Insert only if agentExtension and timesheetOwner are not empty
+                         if (!string.IsNullOrEmpty(agentExtension))
+                         {
+                             insertCommand.Parameters.Clear();
+                             insertCommand.Parameters.AddWithValue("@Date", DateTime.Today);
+                             insertCommand.Parameters.AddWithValue("@Agent", agentExtension);
+                             insertCommand.Parameters.AddWithValue("@TimesheetOwner", timesheetOwner);
+                             insertCommand.Parameters.AddWithValue("@TotalTalkingTime", totalTalkingTime);
+                             insertCommand.Parameters.AddWithValue("@Division", divisionValue);
+                             insertCommand.ExecuteNonQuery();
+                         }
+                         else
+                         {
+                             LogToErrorFile($"Skipping line due to empty agentExtension or timesheetOwner: {line}");
+                         }
+                     }
+                 }
+             }
+         }
+     }
+     catch (IOException ioEx)
+     {
+         LogToErrorFile($"IO Exception: {ioEx.Message}");
+         StartConsoleWriting(ioEx.Message);
+     }
+     catch (UnauthorizedAccessException uaEx)
+     {
+         LogToErrorFile($"Unauthorized Access Exception: {uaEx.Message}");
+         StartConsoleWriting(uaEx.Message);
+     }
+     catch (Exception ex)
+     {
+         LogToErrorFile($"General Exception: {ex.Message}");
+         StartConsoleWriting(ex.Message);
+     }
+ }
+ 
+ public void OverwriteCsvWithDataFromDatabase(string csvFilePath)
+ {
+     try
+     {
+         // Fetch data from the database
+         var data = FetchDataFromDatabase();
+
+         // Append data to the CSV file
+         WriteDataToCsv(csvFilePath, data);
+     }
+     catch (Exception ex)
+     {
+         LogToErrorFile(ex.Message);
+         StartConsoleWriting(ex.Message);
+         throw;
+     }
+ }
+ private DataTable FetchDataFromDatabase()
+ {
+     var dataTable = new DataTable();
+
+     using (var connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString))
+     {
+         connection.Open();
+         string query = $"SELECT * from OutputFileDetails";
+
+         using (var command = new SqlCommand(query, connection))
+         {
+             using (var adapter = new SqlDataAdapter(command))
+             {
+                 adapter.Fill(dataTable);
+             }
+         }
+     }
+
+     return dataTable;
+ }
+ private void WriteDataToCsv(string csvFilePath, DataTable data)
+ {
+     using (var writer = new StreamWriter(csvFilePath, false, Encoding.UTF8))
+     {
+         // Write header
+         WriteHeader(writer, data.Columns);
+
+         // Write rows
+         WriteRows(writer, data);
+     }
+ }
+ private void WriteHeader(StreamWriter writer, DataColumnCollection columns)
+ {
+     var header = string.Join(",", columns.Cast<DataColumn>().Where(column => column.ColumnName != "Id").Select(column => column.ColumnName));
+     writer.WriteLine(header);
+ }
+ private void WriteRows(StreamWriter writer, DataTable data)
+ {
+     foreach (DataRow row in data.Rows)
+     {
+         var rowValues = row.ItemArray
+             .Where((field, index) => data.Columns[index].ColumnName != "Id")
+             .Select(field =>
+             {
+                 if (field is DateTime dateTime)
+                 {
+                     return dateTime.ToString("dd-MM-yyyy");
+                 }
+                 return field.ToString();
+             });
+
+         var rowString = string.Join(",", rowValues);
+         writer.WriteLine(rowString);
+     }
+ }
+
+ 
