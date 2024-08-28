@@ -1,0 +1,176 @@
+To support your requirements, you'll need to adjust both the table schema and the `InsertIntoDatabase` method.
+
+### 1. Table Schema:
+Ensure your `OutputFileDetails` table has a `CreatedDateTime` column to track when each row is inserted. This column is essential for identifying the latest record for today's data.
+
+If you haven't added this column yet, you can modify the table as follows:
+
+```sql
+ALTER TABLE [dbo].[OutputFileDetails]
+ADD CreatedDateTime DATETIME DEFAULT GETDATE();
+```
+
+### 2. Updated `InsertIntoDatabase` Method:
+You should update the `InsertIntoDatabase` method to ensure that the `CreatedDateTime` is inserted correctly.
+
+Here’s the updated method:
+
+```csharp
+private void InsertIntoDatabase(string csvFilePath)
+{
+    try
+    {
+        if (!File.Exists(csvFilePath))
+        {
+            LogToErrorFile($"File not found: {csvFilePath}");
+            return;
+        }
+
+        using (var connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString))
+        {
+            connection.Open();
+
+            string insertQuery = @"
+                INSERT INTO OutputFileDetails (Date, Agent, TimesheetOwner, TotalTalkingTime, Division, CreatedDateTime)
+                VALUES (@Date, @Agent, @TimesheetOwner, @TotalTalkingTime, @Division, @CreatedDateTime)";
+
+            using (var insertCommand = new SqlCommand(insertQuery, connection))
+            {
+                using (var reader = new StreamReader(csvFilePath))
+                {
+                    // Skip the first 6 lines of metadata
+                    for (int i = 0; i < 6; i++)
+                    {
+                        reader.ReadLine();
+                    }
+
+                    reader.ReadLine();
+
+                    while (!reader.EndOfStream)
+                    {
+                        var line = reader.ReadLine();
+                        var values = line.Split(',');
+
+                        if (values.Length < 8)
+                        {
+                            LogToErrorFile($"Skipping line due to insufficient values: {line}");
+                            continue;
+                        }
+
+                        var agentExtensionWithOwner = values[0].Trim('"');
+                        var timesheetOwner = values[1].Trim('"');
+                        var len = values.Length;
+                        var totalTalkingTime = values[len-1].Trim();
+
+                        // Split agent and owner
+                        var parts = agentExtensionWithOwner.Split(' ', 2);
+
+                        if (parts.Length < 2)
+                        {
+                            LogToErrorFile($"Skipping line due to invalid agentExtensionWithOwner format: {line}");
+                            continue;
+                        }
+
+                        var agentExtension = parts[0].Trim();
+                        var divisionValue = parts[1].Trim('"');
+
+                        if (!string.IsNullOrEmpty(agentExtension))
+                        {
+                            insertCommand.Parameters.Clear();
+                            insertCommand.Parameters.AddWithValue("@Date", DateTime.Today); // or parse the date from the file if needed
+                            insertCommand.Parameters.AddWithValue("@Agent", agentExtension);
+                            insertCommand.Parameters.AddWithValue("@TimesheetOwner", timesheetOwner);
+                            insertCommand.Parameters.AddWithValue("@TotalTalkingTime", totalTalkingTime);
+                            insertCommand.Parameters.AddWithValue("@Division", divisionValue);
+                            insertCommand.Parameters.AddWithValue("@CreatedDateTime", DateTime.Now); // Use the current timestamp
+
+                            insertCommand.ExecuteNonQuery();
+                        }
+                        else
+                        {
+                            LogToErrorFile($"Skipping line due to empty agentExtension or timesheetOwner: {line}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    catch (IOException ioEx)
+    {
+        LogToErrorFile($"IO Exception: {ioEx.Message}");
+        StartConsoleWriting(ioEx.Message);
+    }
+    catch (UnauthorizedAccessException uaEx)
+    {
+        LogToErrorFile($"Unauthorized Access Exception: {uaEx.Message}");
+        StartConsoleWriting(uaEx.Message);
+    }
+    catch (Exception ex)
+    {
+        LogToErrorFile($"General Exception: {ex.Message}");
+        StartConsoleWriting(ex.Message);
+    }
+}
+```
+
+### Key Points in the Updated `InsertIntoDatabase` Method:
+1. **`CreatedDateTime` Column**: A timestamp is added using `DateTime.Now` when inserting each record. This allows you to accurately determine when each record was inserted, which is crucial for fetching the last record of today.
+  
+2. **Date Column**: The `Date` field is populated with `DateTime.Today` to ensure that each record is tagged with the correct date.
+
+### Conclusion:
+With the modified table schema and `InsertIntoDatabase` method, you can now accurately store and retrieve data. Your query in `FetchDataFromDatabase` will correctly pull all data from previous days and only the most recent data from today, making it easy to generate the required output file.
+
+
+
+
+I understand your requirement now: you need to fetch all the data from previous days up to yesterday (inclusive) and the latest data from today's files. Here’s how you can modify your `FetchDataFromDatabase` method to achieve this:
+
+### Updated `FetchDataFromDatabase` Method:
+This method will return all records from previous days (up to and including yesterday) and only the last inserted record from today's data.
+
+```csharp
+private DataTable FetchDataFromDatabase()
+{
+    var dataTable = new DataTable();
+
+    using (var connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DefaultConnection"].ConnectionString))
+    {
+        connection.Open();
+
+        // Query to fetch all data till yesterday and the latest record for today
+        string query = @"
+            SELECT * FROM OutputFileDetails
+            WHERE Date < CAST(GETDATE() AS DATE)
+            UNION ALL
+            SELECT * FROM OutputFileDetails
+            WHERE Id = (
+                SELECT TOP 1 Id FROM OutputFileDetails
+                WHERE Date = CAST(GETDATE() AS DATE)
+                ORDER BY CreatedDateTime DESC
+            )";
+
+        using (var command = new SqlCommand(query, connection))
+        {
+            using (var adapter = new SqlDataAdapter(command))
+            {
+                adapter.Fill(dataTable);
+            }
+        }
+    }
+
+    return dataTable;
+}
+```
+
+### Explanation:
+- **Data Until Yesterday**: The first part of the query (`Date < CAST(GETDATE() AS DATE)`) selects all records where the date is before today, which means it will include all data up to and including yesterday.
+  
+- **Today’s Last Record**: The second part (`WHERE Id = (SELECT TOP 1 Id FROM OutputFileDetails WHERE Date = CAST(GETDATE() AS DATE) ORDER BY CreatedDateTime DESC)`) selects only the last record inserted today.
+
+### Generating the Output File:
+Once you have this data in your `DataTable`, you can proceed with the rest of your logic to generate the output CSV file.
+
+This method ensures that your output file will contain:
+1. **All data** from any previous days (including yesterday).
+2. **Only the last record** from today's files.
