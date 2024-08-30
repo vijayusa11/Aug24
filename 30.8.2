@@ -1,0 +1,46 @@
+You can achieve this cumulative subtraction operation using a `CURSOR` or a `WHILE` loop in SQL Server. Below is an example of how you can do this with a `CURSOR`:
+
+```sql
+DECLARE @Outstanding2 DECIMAL(10, 2), @Outstanding DECIMAL(10, 2), @NewOutstanding2 DECIMAL(10, 2);
+DECLARE @RowId INT;
+
+-- Cursor to iterate over each row in the table
+DECLARE row_cursor CURSOR FOR
+SELECT RowId, Outstanding, Outstanding2
+FROM YourTable
+ORDER BY RowId;
+
+-- Open the cursor
+OPEN row_cursor;
+FETCH NEXT FROM row_cursor INTO @RowId, @Outstanding, @Outstanding2;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    -- If it's the first row, just keep the original Outstanding2
+    IF @RowId = 1
+    BEGIN
+        SET @NewOutstanding2 = @Outstanding2;
+    END
+    ELSE
+    BEGIN
+        -- For other rows, subtract the Outstanding from the previous Outstanding2 value
+        SET @NewOutstanding2 = @NewOutstanding2 - @Outstanding;
+    END
+
+    -- Update the table with the new Outstanding2 value
+    UPDATE YourTable
+    SET Outstanding2 = @NewOutstanding2
+    WHERE RowId = @RowId;
+
+    -- Fetch the next row
+    FETCH NEXT FROM row_cursor INTO @RowId, @Outstanding, @Outstanding2;
+END;
+
+-- Close and deallocate the cursor
+CLOSE row_cursor;
+DEALLOCATE row_cursor;
+```
+
+Make sure to replace `YourTable` and `RowId` with your actual table name and the column that uniquely identifies each row.
+
+This script iterates through each row, carrying forward the result of the subtraction and updating `Outstanding2` accordingly.
