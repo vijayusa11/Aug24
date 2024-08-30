@@ -1,0 +1,51 @@
+Here's how you can perform the cumulative subtraction using a `WHILE` loop:
+
+```sql
+DECLARE @RowId INT = 1;
+DECLARE @Outstanding2 DECIMAL(10, 2);
+DECLARE @Outstanding DECIMAL(10, 2);
+DECLARE @NewOutstanding2 DECIMAL(10, 2);
+
+-- Initialize the first row's Outstanding2 value
+SELECT @Outstanding2 = Outstanding2
+FROM YourTable
+WHERE RowId = @RowId;
+
+-- Initialize the loop
+WHILE EXISTS (SELECT 1 FROM YourTable WHERE RowId = @RowId)
+BEGIN
+    -- Get the Outstanding value for the current row
+    SELECT @Outstanding = Outstanding
+    FROM YourTable
+    WHERE RowId = @RowId;
+
+    -- If it's the first row, the NewOutstanding2 remains the same as the initial Outstanding2
+    IF @RowId = 1
+    BEGIN
+        SET @NewOutstanding2 = @Outstanding2;
+    END
+    ELSE
+    BEGIN
+        -- Subtract the Outstanding from the previous Outstanding2 value
+        SET @NewOutstanding2 = @NewOutstanding2 - @Outstanding;
+    END
+
+    -- Update the table with the new Outstanding2 value
+    UPDATE YourTable
+    SET Outstanding2 = @NewOutstanding2
+    WHERE RowId = @RowId;
+
+    -- Move to the next row
+    SET @RowId = @RowId + 1;
+END;
+```
+
+In this script:
+
+1. The loop starts at the first row.
+2. For each row, it fetches the `Outstanding` value.
+3. If it's the first row, the `Outstanding2` value remains unchanged.
+4. For subsequent rows, it subtracts the current `Outstanding` from the previously computed `Outstanding2`.
+5. The loop continues until there are no more rows left.
+
+Make sure to replace `YourTable` and `RowId` with your actual table name and the column that uniquely identifies each row.
