@@ -1,0 +1,112 @@
+To correctly perform the cumulative subtraction operation on the `Outstanding2` column for each row in your SQL Server view, we need to calculate the remaining balance of `Outstanding2` using a `WHILE` loop or a window function like `SUM() OVER()` for running totals. However, since views don't support `WHILE` loops directly, we will use a window function to simulate the cumulative subtraction.
+
+Here's how you can update your view to correctly calculate `Outstanding2`:
+
+```sql
+CREATE VIEW [dbo].[tmpvw] AS  
+SELECT 
+    ISNULL(po.PurchaseOrderNo, '') AS PurchaseOrderNo,  
+    ISNULL(po.SiteName, '') AS SiteName,  
+    STUFF((
+        SELECT ';' + CAST(mat.materialname AS VARCHAR(MAX))  
+        FROM materials mat  
+        WHERE mat.materialid IN (  
+            SELECT MaterialId  
+            FROM PurchaseOrdersDetails AS pod1  
+            WHERE pod1.PurchaseOrderId = podetailgroup.PurchaseOrderId  
+            AND pod1.NominalCodeId = podetailgroup.NominalCodeId  
+        )  
+        FOR XML PATH('')  
+    ), 1, 1, '') AS MaterialName,  
+    ISNULL(podetailgroup.NominalCode, '') AS NominalCode,  
+    ISNULL(podetailgroup.NominalCodeName, '') AS NominalCodeDesc,  
+    ISNULL(po.CreatorName, '') AS POCreator,  
+    dbo.GetPurchaseOrderAuthorizers(po.PurchaseOrderId) AS POAuthoriser,  
+    supplier.RefNo AS SupplierSageCode,  
+    ISNULL(po.SupplierName, '') AS SupplierName,  
+    ISNULL(po.SupplierAdd, '') AS SupplierAddress,  
+    ISNULL(po.PaymentTerm, '') AS PaymentTerm,  
+    po.CreatedDate AS PODate,  
+    podetailgroup.TotalPO AS TotalPOAmount,  
+    ISNULL(po.Delivery, 0) AS Delivery,  
+    ISNULL(po.Remarks, '') AS PORemarks,  
+    ISNULL(po.RejectRemarks, '') AS PORejectRemarks,  
+    ISNULL(ISNULL(podetailgroup.Quantity, 0) * ISNULL(podetailgroup.Rate, 0) * ISNULL(podetailgroup.TotalVat, 0) / 100, 0) AS POTotalVatAmount,  
+    ISNULL((podetailgroup.Quantity * podetailgroup.Rate), 0) AS PONetAmount,  
+    po.StatusId AS POStatus,  
+    SI.StatusId AS SIStatus,  
+    ISNULL(SI.SupplierInvoiceNo, '') AS AGINo,  
+    ISNULL(PurI.PurchaseInvoiceId, '') AS UniqueInvoiceNo,  
+    ISNULL(SI.BillNo, '') AS InvoiceNo,  
+    SI.BillDate AS InvoiceDate,  
+    SI.DueDate AS InvoiceDueDate,  
+    SI.InvoiceCreateDate AS SICreatedDate,  
+    ISNULL(SIDetail.SITotalAmount, 0) + ISNULL(SIDetail.Delivery, 0) AS InvoiceAmount,  
+    (  
+        SELECT SUM(ISNULL(sd.SITotalAmount, 0) + ISNULL(sd.Delivery, 0)) AS Expr1  
+        FROM dbo.SupplierInvoices AS s WITH (NOLOCK)  
+        INNER JOIN dbo.SupplierInvoiceDetails AS sd WITH (NOLOCK) ON s.SupplierInvoiceId = sd.SupplierInvoiceId  
+        WHERE s.PurchaseOrderId = po.PurchaseOrderId  
+        AND sd.NominalCodeId = podetailgroup.NominalCodeId  
+        AND s.StatusId NOT IN (5, 3)  
+    ) AS TotalInvoiceAmount,  
+    ISNULL(SIDetail.VatAmount, 0) AS InvoiceVatAmount,  
+    ISNULL(SIDetail.VatPer, 0) AS InvoiceVatPercentage,  
+    ISNULL(SIDetail.FromDate, '') AS FromDate,  
+    ISNULL(SIDetail.ToDate, '') AS ToDate,  
+    ISNULL(SI.AuthoriserName, '') AS InvoiceAuthoriser,  
+    (ISNULL(SIDetail.SITotalAmount, 0) + ISNULL(SIDetail.Delivery, 0)) AS Outstanding,  
+    (
+        ISNULL(SIDetail.SITotalAmount, 0) + ISNULL(SIDetail.Delivery, 0) 
+        - SUM(ISNULL(SIDetail.SITotalAmount, 0) + ISNULL(SIDetail.Delivery, 0)) OVER (ORDER BY po.CreatedDate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+        + SUM(podetailgroup.TotalPO) OVER (ORDER BY po.CreatedDate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+    ) AS Outstanding2,  
+    ISNULL(SI.Remarks, '') AS SIRemarks,  
+    ISNULL(SI.QueryRemarks, '') AS SIQueryRemarks,  
+    ISNULL(PaymentMode.PaymentMode, '') AS PaymentMode,  
+    ISNULL(SI.PaymentReferenceNo, '') AS PaymentRefNo,  
+    SI.PaymentReferenceDate AS PaymentRefDate,  
+    ISNULL(po.FinanceRemarks, '') AS FinanceRemarks,  
+    SI.AuthoriseDate AS SIAuthoriserDate,  
+    po.Authorisedate AS AuthoriserDate,  
+    ISNULL(po.POType, '') AS POType,  
+    po.Siteid,  
+    po.CreatedDate  
+FROM 
+    dbo.PurchaseOrders AS po WITH (NOLOCK)  
+    INNER JOIN dbo.Suppliers AS supplier WITH (NOLOCK) ON supplier.SupplierId = po.SupplierId  
+    LEFT OUTER JOIN dbo.SupplierInvoices AS SI WITH (NOLOCK) ON SI.PurchaseOrderId = po.PurchaseOrderId  
+    INNER JOIN (  
+        SELECT 
+            podetail.PurchaseOrderId,  
+            podetail.NominalCodeId,  
+            ncode.NominalCode,  
+            ncode.NominalCodeName,  
+            SUM(podetail.Total + ISNULL(podetail.Delivery, 0)) AS TotalPO,  
+            SUM(podetail.Vat) AS TotalVat,  
+            SUM(podetail.Rate) AS Rate,  
+            SUM(podetail.Quantity) AS Quantity  
+        FROM 
+            PurchaseOrdersDetails podetail  
+            INNER JOIN NominalCodes ncode ON ncode.NominalCodeId = podetail.NominalCodeId  
+        GROUP BY 
+            podetail.PurchaseOrderId,  
+            podetail.NominalCodeId,  
+            ncode.NominalCode,  
+            ncode.NominalCodeName   
+    ) podetailgroup ON podetailgroup.PurchaseOrderId = po.PurchaseOrderId  
+    AND po.PurchaseOrderNo = 'A016/2023/662'  
+    AND NominalCode = '50200'  
+    LEFT OUTER JOIN dbo.SupplierInvoiceDetails AS SIDetail WITH (NOLOCK) ON podetailgroup.NominalCodeId = SIDetail.NominalCodeId  
+    AND SI.SupplierInvoiceId = SIDetail.SupplierInvoiceId  
+    LEFT OUTER JOIN dbo.PaymentModes AS PaymentMode WITH (NOLOCK) ON PaymentMode.PaymentModeId = SI.PaymentModeId  
+    LEFT OUTER JOIN dbo.PurchaseInvoices AS PurI WITH (NOLOCK) ON PurI.SupplierInvoiceId = SI.SupplierInvoiceId  
+    AND PurI.PurchaseInvoiceStatusId = 8;
+```
+
+### Explanation:
+- The query uses the `SUM()` function with the `OVER()` clause to create a running total that considers all preceding rows.
+- The logic calculates `Outstanding2` by cumulatively subtracting `Outstanding` from `Outstanding2`, ensuring the correct remaining balance is calculated at each step.
+- The `ORDER BY` in the `OVER()` clause ensures that the subtraction occurs in the correct sequence based on the `CreatedDate` or another relevant column.
+
+This should solve the issue where your calculation was incorrectly resetting for each row.
